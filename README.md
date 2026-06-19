@@ -1,25 +1,47 @@
-# Vibe Pet
+<p align="center">
+  <img src="docs/assets/vibe-pet-readme-icon.png" width="96" alt="Vibe Pet logo">
+</p>
 
-Hardware desktop pets for your AI coding agents.
+<h1 align="center">Vibe Pet</h1>
 
-Turn every AI coding agent into a live companion that thinks, works, and celebrates with you across desktop and hardware.
+---
 
-[![GitHub stars](https://img.shields.io/github/stars/wangzongming/vibe-pet?style=flat-square)](https://github.com/wangzongming/vibe-pet)
-[![Node.js](https://img.shields.io/badge/node-%3E%3D18-2f7d32?style=flat-square)](https://nodejs.org/)
-[![Electron](https://img.shields.io/badge/runtime-Electron-4666ff?style=flat-square)](https://www.electronjs.org/)
+<p align="center">
+  <strong>Hardware desktop pets for your AI coding agents.</strong><br>
+  <strong>Choose from thousands of characters or create your own in one click.</strong><br>
+  Turn Codex, Cursor, Windsurf, and other agents into live companions across desktop and hardware.
+</p>
 
-English | [中文](README.zh-CN.md) | [日本語](README.ja-JP.md)
+<p align="center">
+  English
+  ·
+  <a href="docs/protocol.md">Protocol</a>
+  ·
+  <a href="https://github.com/crafter-station/petdex">Petdex</a>
+  ·
+  <a href="README.zh-CN.md">中文</a>
+  ·
+  <a href="README.ja-JP.md">日本語</a>
+</p>
+
+<p align="center">
+  <a href="https://github.com/wangzongming/vibe-pet"><img alt="stars" src="https://img.shields.io/github/stars/wangzongming/vibe-pet?style=flat-square"></a>
+  <a href="https://github.com/wangzongming/vibe-pet/issues"><img alt="issues" src="https://img.shields.io/github/issues/wangzongming/vibe-pet?style=flat-square"></a>
+  <a href="LICENSE"><img alt="license" src="https://img.shields.io/badge/license-MIT-111111?style=flat-square"></a>
+  <a href="https://nodejs.org/"><img alt="Node.js" src="https://img.shields.io/badge/node-%3E%3D18-2f7d32?style=flat-square"></a>
+  <a href="https://www.electronjs.org/"><img alt="Electron" src="https://img.shields.io/badge/runtime-Electron-4666ff?style=flat-square"></a>
+</p>
 
 Vibe Pet is a hardware desktop pet project for AI coding agents. It watches live activity from Codex, Cursor, Windsurf, and other AI coding agents in CLIs and IDEs, turns states such as thinking, tool use, waiting for approval, completed, and error into animated pets, then syncs the same state to Wio Terminal or ESP32-S3 hardware over BLE.
 
 ## Highlights
 
-- Multi-agent pet grid: every active editor or AI coding agent session gets its own pet card.
-- Real desktop pets: pets from the main window are mirrored onto your desktop as draggable floating companions.
-- Hardware sync: send normalized AI coding agent state to Wio Terminal or ESP-AI Mini Ext over Bluetooth Low Energy.
+- Multi-agent pet view: every active editor or AI coding agent gets its own pet card instead of sharing one combined state.
+- Real desktop pets: pets from the main window are also spawned onto the desktop, and each one can be dragged independently.
+- Hardware sync: send state over Bluetooth to devices such as Wio Terminal or ESP-AI Mini Ext.
 - Live output: show recent AI coding agent output inside each pet card with automatic scrolling.
 - Session titles: display the current session or workspace title so multiple Cursor, Codex, or Windsurf windows are easy to tell apart.
-- Character switching: includes the built-in Lulu character and can refresh more sprites from [Petdex](https://github.com/crafter-station/petdex).
+- Character switching: choose a character from [Petdex](https://github.com/crafter-station/petdex) by default or use a custom character you made.
 - Firmware flashing: flash Wio Terminal and ESP32-S3 firmware directly from the desktop app.
 - Multilingual UI: Chinese, English, and Japanese are supported. English is the default.
 - Day and night themes: switch between light and night modes.
@@ -105,7 +127,7 @@ npm run dev
 
 ## Packaging
 
-The packaging scripts support macOS, Linux, and Windows. Output goes to `dist/`.
+The packaging scripts support macOS, Linux, and Windows. App bundle output goes to `dist/`.
 
 ```bash
 npm run package:current
@@ -115,14 +137,31 @@ npm run package:win
 npm run package:all
 ```
 
+Installer output goes to `dist/installers/`. To build installers for all target platforms:
+
+```bash
+npm run build
+```
+
+Platform-specific installer commands are also available:
+
+```bash
+npm run build:current
+npm run build:mac
+npm run build:linux
+npm run build:win
+```
+
 Pass an architecture when needed:
 
 ```bash
 npm run package:mac -- --arch arm64
 npm run package:linux -- --arch x64
+npm run build:win -- --arch x64
+npm run build:linux -- --target AppImage
 ```
 
-Packages are unsigned Electron app bundles. Release distribution may still require platform-specific signing, notarization, or installer tooling.
+Installer defaults are DMG for macOS, NSIS for Windows, and AppImage plus deb for Linux. Installers are unsigned; release distribution may still require platform-specific signing or notarization. macOS installers must be built on macOS.
 
 Display firmware for ESP-AI display boards, M5Stack, LILYGO, Heltec, and ESP8266 OLED boards lives in `src/firmware/esp-display-code-pet`:
 
@@ -135,7 +174,16 @@ pio run -d src/firmware/esp-display-code-pet -e lilygo_t_display_s3 -t upload
 
 For ESP8266 OLED boards, set `CODE_PET_WIFI_SSID`, `CODE_PET_WIFI_PASSWORD`, and `CODE_PET_BRIDGE_URL` in `src/firmware/esp-display-code-pet/platformio.ini` so the device can poll `/api/device-snapshot`.
 
-Technical details such as project structure, local endpoints, BLE / Wi-Fi behavior, and hook mapping live in [AGENT.MD](AGENT.MD). Protocol documentation starts at the [protocol index](docs/protocol.md), then splits into the [IDE / Agent protocol](docs/ide-protocol.md) and the [hardware protocol](docs/hardware-protocol.md). Chinese versions are available for the [IDE / Agent protocol](docs/ide-protocol.zh-CN.md) and [hardware protocol](docs/hardware-protocol.zh-CN.md).
+## Technical Documentation
+
+- Project structure, local endpoints, BLE / Wi-Fi behavior, and hook mapping are documented in [AGENT.MD](AGENT.MD)
+- Protocol documentation starts at the [protocol index](docs/protocol.md)
+- English protocol docs:
+  - [IDE / Agent protocol](docs/ide-protocol.md)
+  - [hardware protocol](docs/hardware-protocol.md)
+- Chinese protocol docs:
+  - [IDE / Agent 协议](docs/ide-protocol.zh-CN.md)
+  - [硬件协议](docs/hardware-protocol.zh-CN.md)
 
 ## Sponsor
 

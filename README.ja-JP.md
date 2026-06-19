@@ -1,25 +1,47 @@
-# Vibe Pet
+<p align="center">
+  <img src="docs/assets/vibe-pet-readme-icon.png" width="96" alt="Vibe Pet ロゴ">
+</p>
 
-AI コーディングエージェントのためのハードウェアデスクトップペット。
+<h1 align="center">Vibe Pet</h1>
 
-すべての AI コーディングエージェントを、考え、働き、完了を一緒に喜ぶライブコンパニオンとしてデスクトップとハードウェアに届けます。
+---
 
-[![GitHub stars](https://img.shields.io/github/stars/wangzongming/vibe-pet?style=flat-square)](https://github.com/wangzongming/vibe-pet)
-[![Node.js](https://img.shields.io/badge/node-%3E%3D18-2f7d32?style=flat-square)](https://nodejs.org/)
-[![Electron](https://img.shields.io/badge/runtime-Electron-4666ff?style=flat-square)](https://www.electronjs.org/)
+<p align="center">
+  <strong>AI コーディングエージェントのためのハードウェアデスクトップペット。</strong><br>
+  <strong>数千種類のキャラクターから選ぶことも、ワンクリックで自分のキャラクターを作ることもできます。</strong><br>
+  Codex、Cursor、Windsurf などのエージェントを、デスクトップとハードウェア上のライブコンパニオンにします。
+</p>
 
-[English](README.md) | [中文](README.zh-CN.md) | 日本語
+<p align="center">
+  <a href="README.md">English</a>
+  ·
+  <a href="docs/protocol.md">プロトコル</a>
+  ·
+  <a href="https://github.com/crafter-station/petdex">Petdex</a>
+  ·
+  <a href="README.zh-CN.md">中文</a>
+  ·
+  日本語
+</p>
+
+<p align="center">
+  <a href="https://github.com/wangzongming/vibe-pet"><img alt="stars" src="https://img.shields.io/github/stars/wangzongming/vibe-pet?style=flat-square"></a>
+  <a href="https://github.com/wangzongming/vibe-pet/issues"><img alt="issues" src="https://img.shields.io/github/issues/wangzongming/vibe-pet?style=flat-square"></a>
+  <a href="LICENSE"><img alt="license" src="https://img.shields.io/badge/license-MIT-111111?style=flat-square"></a>
+  <a href="https://nodejs.org/"><img alt="Node.js" src="https://img.shields.io/badge/node-%3E%3D18-2f7d32?style=flat-square"></a>
+  <a href="https://www.electronjs.org/"><img alt="Electron" src="https://img.shields.io/badge/runtime-Electron-4666ff?style=flat-square"></a>
+</p>
 
 Vibe Pet は AI コーディングエージェントのためのハードウェアデスクトップペットです。Codex、Cursor、Windsurf などの CLI / IDE AI エージェントの状態を読み取り、「考え中」「ツール実行中」「承認待ち」「完了」「エラー」といった動きを小さなペットのアニメーションに変換し、BLE 経由で Wio Terminal や ESP32-S3 デバイスへ同期します。
 
 ## 主な機能
 
-- 複数エージェントのペット表示：実行中のエディタや AI エージェントのセッションごとに個別のペットカードを表示します。
+- 複数エージェントのペット表示：実行中のエディタや AI コーディングエージェントごとに個別のペットカードを表示し、ひとつの状態に混ざらないようにします。
 - デスクトップ上のペット：メイン画面のペットをデスクトップ上にも表示し、それぞれ独立してドラッグできます。
-- ハードウェア同期：Bluetooth Low Energy で Wio Terminal または ESP-AI Mini Ext に状態を送信します。
+- ハードウェア同期：Bluetooth で Wio Terminal や ESP-AI Mini Ext などのデバイスへ状態を送信します。
 - リアルタイム出力：各ペットカードに AI エージェントの最新出力を表示し、長い内容は自動でスクロールします。
 - セッションタイトル：複数の Cursor、Codex、Windsurf を区別しやすいように、会話やワークスペース名を表示します。
-- キャラクター切り替え：内蔵キャラクター「噜噜」に加えて、[Petdex](https://github.com/crafter-station/petdex) からスプライトキャラクターを更新して選択できます。
+- キャラクター切り替え：デフォルトでは [Petdex](https://github.com/crafter-station/petdex) からキャラクターを選び、自作キャラクターを使うこともできます。
 - ファームウェア書き込み：Wio Terminal と ESP32-S3 のファームウェアを書き込む機能をデスクトップアプリに内蔵しています。
 - 多言語 UI：中国語、英語、日本語に対応し、初期言語は英語です。
 - 昼夜テーマ：ライトモードとナイトモードを切り替えられます。
@@ -135,7 +157,16 @@ pio run -d src/firmware/esp-display-code-pet -e lilygo_t_display_s3 -t upload
 
 ESP8266 OLED デバイスでは、`src/firmware/esp-display-code-pet/platformio.ini` に `CODE_PET_WIFI_SSID`、`CODE_PET_WIFI_PASSWORD`、`CODE_PET_BRIDGE_URL` を設定してください。デバイスは `/api/device-snapshot` をポーリングしてデスクトップの状態を同期します。
 
-プロジェクト構成、ローカルエンドポイント、BLE / Wi-Fi の動作、hook のマッピングなどの技術情報は [AGENT.MD](AGENT.MD) を参照してください。プロトコル文書は [protocol index](docs/protocol.md)、[IDE / Agent protocol](docs/ide-protocol.md)、[hardware protocol](docs/hardware-protocol.md) に分かれています。中国語版は [IDE / Agent 協議](docs/ide-protocol.zh-CN.md) と [硬件協議](docs/hardware-protocol.zh-CN.md) です。
+## 技術ドキュメント
+
+- プロジェクト構成、ローカルエンドポイント、BLE / Wi-Fi の動作、hook のマッピングなどの技術情報は [AGENT.MD](AGENT.MD) を参照してください
+- プロトコル文書の入口は [protocol index](docs/protocol.md) です
+- 英語版プロトコル文書:
+  - [IDE / Agent protocol](docs/ide-protocol.md)
+  - [hardware protocol](docs/hardware-protocol.md)
+- 中国語版プロトコル文書:
+  - [IDE / Agent 协议](docs/ide-protocol.zh-CN.md)
+  - [硬件协议](docs/hardware-protocol.zh-CN.md)
 
 ## スポンサー
 

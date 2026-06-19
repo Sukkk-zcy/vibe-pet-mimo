@@ -1,28 +1,45 @@
-# Vibe Pet
+<p align="center">
+  <img src="docs/assets/vibe-pet-readme-icon.png" width="96" alt="Vibe Pet 标志">
+</p>
 
-给 AI 编程助手准备的硬件桌宠。
+<h1 align="center">Vibe Pet</h1>
 
-把每一个 AI 编程助手变成陪你思考、工作和完成任务的实时桌宠，让 AI 协作真正出现在桌面和硬件上。
+---
 
-[![GitHub stars](https://img.shields.io/github/stars/wangzongming/vibe-pet?style=flat-square)](https://github.com/wangzongming/vibe-pet)
-[![Node.js](https://img.shields.io/badge/node-%3E%3D18-2f7d32?style=flat-square)](https://nodejs.org/)
-[![Electron](https://img.shields.io/badge/runtime-Electron-4666ff?style=flat-square)](https://www.electronjs.org/)
+<p align="center">
+  <strong>给 AI 编程助手准备的桌宠。</strong><br>
+  <strong>几千款形象任你选择或者一键制作自己的形象</strong><br>
+  把 Codex、Cursor、Windsurf 和其他助手变成出现在桌面与硬件上的实时伙伴。
+</p>
 
-[English](README.md) | 中文 | [日本語](README.ja-JP.md)
+<p align="center">
+  <a href="README.md">English</a>
+  ·
+  <a href="docs/protocol.md">协议</a>
+  ·
+  <a href="https://github.com/crafter-station/petdex">Petdex</a>
+  ·
+  中文
+  ·
+  <a href="README.ja-JP.md">日本語</a>
+</p>
 
-Vibe Pet 是一个给 AI 编程助手准备的硬件桌宠项目。它会读取 Codex、Cursor、Windsurf 以及其他 CLI / IDE 中 AI 编程助手的实时状态，把「思考中」「执行工具」「等待确认」「完成」「报错」这些事件变成桌面上的小宠物动画，并通过 BLE 同步到 Wio Terminal 或 ESP32-S3 设备。
+<p align="center">
+  <a href="https://github.com/wangzongming/vibe-pet"><img alt="stars" src="https://img.shields.io/github/stars/wangzongming/vibe-pet?style=flat-square"></a>
+  <a href="https://github.com/wangzongming/vibe-pet/issues"><img alt="issues" src="https://img.shields.io/github/issues/wangzongming/vibe-pet?style=flat-square"></a>
+  <a href="LICENSE"><img alt="license" src="https://img.shields.io/badge/license-MIT-111111?style=flat-square"></a>
+  <a href="https://nodejs.org/"><img alt="Node.js" src="https://img.shields.io/badge/node-%3E%3D18-2f7d32?style=flat-square"></a>
+  <a href="https://www.electronjs.org/"><img alt="Electron" src="https://img.shields.io/badge/runtime-Electron-4666ff?style=flat-square"></a>
+</p>
+
+Vibe Pet 是一个给 AI 编程助手准备的桌宠项目。它会读取 Codex、Cursor、Windsurf 以及其他 CLI / IDE 中 AI 编程助手的实时状态，变成桌面上的小宠物动画，并通过 BLE 同步到 Wio Terminal 或 ESP32-S3 等设备。
 
 ## 核心功能
 
-- 多助手桌宠视图：每个正在运行的编辑器或 AI 编程助手会话都有自己的宠物卡片，不会混成一个状态。
+- 多助手桌宠视图：每个正在运行的编辑器或 AI 编程助手都有自己的宠物卡片，不会混成一个状态。
 - 真正的桌面宠物：主窗口里的宠物也会同步生成到桌面上，每个宠物都可以独立拖拽。
-- 硬件同步：通过蓝牙把状态写入 Wio Terminal 或 ESP-AI Mini Ext。
-- 实时输出：在桌宠卡片里显示 AI 编程助手最近的输出内容，并在内容变多时自动滚动。
-- 会话标题：顶部显示当前会话或工作区标题，方便区分多个 Cursor、Codex 或 Windsurf 实例。
-- 角色切换：内置「噜噜」角色，也可以从 [Petdex](https://github.com/crafter-station/petdex) 刷新和选择更多精灵图角色。
-- 固件烧录：桌面程序内置 Wio Terminal 和 ESP32-S3 固件烧录入口。
-- 多语言界面：支持中文、英文、日语，默认英文。
-- 日夜主题：支持白天模式和夜晚模式。
+- 硬件同步：通过蓝牙把状态写入 Wio Terminal 或 ESP-AI Mini Ext 等设备。 
+- 角色切换：默认从 [Petdex](https://github.com/crafter-station/petdex) 选择角色或者使用自己做的角色。 
 
 ## 支持的 Agent
 
@@ -31,6 +48,7 @@ Vibe Pet 会默认尝试同步这些 AI 编程助手的 hooks 或插件配置：
 | Agent | 集成方式 |
 | --- | --- |
 | Codex | Hooks 和 JSONL 会话监听 |
+| Codex CLI | Hooks 和 JSONL 会话监听 |
 | Cursor | Hooks |
 | Windsurf | Cascade hooks |
 | Claude CLI | Hooks |
@@ -135,7 +153,16 @@ pio run -d src/firmware/esp-display-code-pet -e lilygo_t_display_s3 -t upload
 
 ESP8266 OLED 设备需要在 `src/firmware/esp-display-code-pet/platformio.ini` 中填写 `CODE_PET_WIFI_SSID`、`CODE_PET_WIFI_PASSWORD` 和 `CODE_PET_BRIDGE_URL`，设备会通过 `/api/device-snapshot` 轮询桌面端状态。
 
-更详细的目录结构、端点和 hook 行为见 [AGENT.MD](AGENT.MD)。协议文档入口见 [协议总览](docs/protocol.md)，并拆分为 [IDE / Agent 协议](docs/ide-protocol.zh-CN.md) 和 [硬件协议](docs/hardware-protocol.zh-CN.md)，也提供英文版 [IDE / Agent protocol](docs/ide-protocol.md) 和 [hardware protocol](docs/hardware-protocol.md)。
+## 技术文档
+
+- 更详细的目录结构、端点和 hook 行为见 [AGENT.MD](AGENT.MD)
+- 协议文档入口见 [协议总览](docs/protocol.md)
+- 中文协议文档：
+  - [IDE / Agent 协议](docs/ide-protocol.zh-CN.md)
+  - [硬件协议](docs/hardware-protocol.zh-CN.md)
+- 英文协议文档：
+  - [IDE / Agent protocol](docs/ide-protocol.md)
+  - [hardware protocol](docs/hardware-protocol.md)
 
 ## 赞助商
 
