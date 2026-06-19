@@ -34,6 +34,12 @@
 
 Vibe Pet は AI コーディングエージェントのためのハードウェアデスクトップペットです。Codex、Cursor、Windsurf などの CLI / IDE AI エージェントの状態を読み取り、「考え中」「ツール実行中」「承認待ち」「完了」「エラー」といった動きを小さなペットのアニメーションに変換し、BLE 経由で Wio Terminal や ESP32-S3 デバイスへ同期します。
 
+
+<div style="display: flex; gap: 12px;">
+<img src="images/home.gif" style="width: 50%; height: 250px; border-radius: 8px;"/>
+<img src="images/work.gif" style="width: 50%; height: 250px; border-radius: 8px;"/>
+</div>
+
 ## 主な機能
 
 - 複数エージェントのペット表示：実行中のエディタや AI コーディングエージェントごとに個別のペットカードを表示し、ひとつの状態に混ざらないようにします。

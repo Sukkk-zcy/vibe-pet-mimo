@@ -1,7 +1,7 @@
 {
   "name": "vibe-pet",
   "productName": "Vibe Pet",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Hardware desktop pet bridge for AI agents over BLE and Wi-Fi.",
   "main": "src/desktop/main.js",
   "type": "commonjs",
@@ -15,12 +15,23 @@
     "bridge:web": "node src/host/index.js",
     "bridge:web:dev": "node src/host/index.js --verbose",
     "setup": "node src/scripts/setup.js",
+    "build": "node src/scripts/package-installers.js --platform all --arch x64",
+    "build:current": "node src/scripts/package-installers.js --platform current",
+    "build:mac": "node src/scripts/package-installers.js --platform darwin",
+    "build:linux": "node src/scripts/package-installers.js --platform linux",
+    "build:win": "node src/scripts/package-installers.js --platform win32",
     "package": "node src/scripts/package.js",
     "package:current": "node src/scripts/package.js --platform current",
     "package:mac": "node src/scripts/package.js --platform darwin",
     "package:linux": "node src/scripts/package.js --platform linux",
     "package:win": "node src/scripts/package.js --platform win32",
     "package:all": "node src/scripts/package.js --platform all --arch x64",
+    "installer": "node src/scripts/package-installers.js",
+    "installer:current": "node src/scripts/package-installers.js --platform current",
+    "installer:mac": "node src/scripts/package-installers.js --platform darwin",
+    "installer:linux": "node src/scripts/package-installers.js --platform linux",
+    "installer:win": "node src/scripts/package-installers.js --platform win32",
+    "installer:all": "node src/scripts/package-installers.js --platform all --arch x64",
     "install:hooks": "node src/scripts/install-hooks.js",
     "uninstall:hooks": "node src/scripts/install-hooks.js --uninstall",
     "check": "node src/scripts/check.js"
@@ -45,8 +56,13 @@
   "engines": {
     "node": ">=18"
   },
+  "dependencies": {
+    "aegis-web-sdk": "^1.41.13",
+    "electron-updater": "^6.8.9"
+  },
   "devDependencies": {
     "@electron/packager": "^20.0.1",
-    "electron": "^42.4.0"
+    "electron": "^42.4.0",
+    "electron-builder": "^26.15.3"
   }
 }

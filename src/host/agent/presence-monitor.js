@@ -6,19 +6,24 @@ const AGENTS = [
   {
     id: "codex",
     name: "Codex",
-    match: (line) => line.includes("/Codex.app/") || /\bcodex\b/i.test(line),
+    match: (line) => line.includes("/Codex.app/") || /\bcodex(?:\.exe)?\b/i.test(line),
   },
   {
     id: "cursor",
     name: "Cursor",
-    match: (line) => line.includes("/Cursor.app/") || /\bcursor\b/i.test(line),
+    match: (line) => line.includes("/Cursor.app/") || /\bcursor(?:\.exe)?\b/i.test(line),
   },
   {
     id: "windsurf",
     name: "Windsurf",
-    match: (line) => line.includes("/Windsurf.app/") || /\bwindsurf\b/i.test(line),
+    match: (line) => line.includes("/Windsurf.app/") || /\bwindsurf(?:\.exe)?\b/i.test(line),
   },
 ];
+
+function processListCommand(platform = process.platform) {
+  if (platform === "win32") return { file: "tasklist", args: ["/fo", "csv", "/nh"] };
+  return { file: "ps", args: ["axo", "args"] };
+}
 
 class PresenceMonitor {
   constructor(onState, options = {}) {
@@ -44,9 +49,13 @@ class PresenceMonitor {
   poll() {
     if (this.inFlight) return;
     this.inFlight = true;
-    execFile("ps", ["axo", "args"], { maxBuffer: 1024 * 1024 }, (err, stdout) => {
+    const command = processListCommand();
+    execFile(command.file, command.args, { maxBuffer: 1024 * 1024 }, (err, stdout) => {
       this.inFlight = false;
-      if (err) return;
+      if (err) {
+        if (this.verbose) console.warn(`[presence] process list failed: ${err.message}`);
+        return;
+      }
       const lines = String(stdout || "").split("\n");
       for (const agent of AGENTS) {
         if (this.hasSession(agent.id)) continue;
@@ -57,7 +66,7 @@ class PresenceMonitor {
           sessionId: "app",
           state: "idle",
           event: "AppRunning",
-          title: "等待 hook 事件",
+          title: "Waiting for hook events",
           source: "process-presence",
         });
         if (this.verbose) console.log(`[presence] ${agent.name} app detected`);
@@ -67,5 +76,6 @@ class PresenceMonitor {
 }
 
 module.exports = {
+  processListCommand,
   PresenceMonitor,
 };

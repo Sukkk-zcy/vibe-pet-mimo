@@ -1,0 +1,57 @@
+{
+  "appId": "com.wangzongming.vibepet",
+  "productName": "Vibe Pet",
+  "asar": false,
+  "compression": "normal",
+  "artifactName": "${productName}-${version}-${os}-${arch}.${ext}",
+  "directories": {
+    "output": "dist/installers"
+  },
+  "publish": [
+    {
+      "provider": "github",
+      "owner": "wangzongming",
+      "repo": "vibe-pet",
+      "releaseType": "release"
+    }
+  ],
+  "files": [
+    "package.json",
+    "src/**/*",
+    "!src/firmware/**/.pio",
+    "!src/firmware/**/.pio/**",
+    "!src/firmware/**/build",
+    "!src/firmware/**/build/**"
+  ],
+  "mac": {
+    "category": "public.app-category.developer-tools",
+    "icon": "src/desktop/assets/app-icon.icns",
+    "target": [
+      "dmg",
+      "zip"
+    ]
+  },
+  "dmg": {
+    "backgroundColor": "#f7f8fb"
+  },
+  "win": {
+    "icon": "src/desktop/assets/app-icon.ico",
+    "target": [
+      "nsis"
+    ]
+  },
+  "nsis": {
+    "oneClick": false,
+    "allowToChangeInstallationDirectory": true,
+    "createDesktopShortcut": true,
+    "createStartMenuShortcut": true
+  },
+  "linux": {
+    "category": "Development",
+    "icon": "src/desktop/assets/app-icon.png",
+    "target": [
+      "AppImage",
+      "deb"
+    ]
+  }
+}

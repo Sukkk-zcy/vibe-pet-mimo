@@ -32,9 +32,15 @@ const PETDEX_FRAME_WIDTH = 192;
 const PETDEX_FRAME_HEIGHT = 208;
 const PETDEX_DEFAULT_COLS = 8;
 const PETDEX_DEFAULT_ROWS = 9;
+const PETDEX_REQUIRED_COLS = 9;
+const PETDEX_REQUIRED_ROWS = 8;
+const PETDEX_REQUIRED_WIDTH = PETDEX_FRAME_WIDTH * PETDEX_REQUIRED_COLS;
+const PETDEX_REQUIRED_HEIGHT = PETDEX_FRAME_HEIGHT * PETDEX_REQUIRED_ROWS;
 const PETDEX_FRAME_MS = 150;
-const PETDEX_PICKER_LIMIT = 240;
+const PETDEX_PICKER_PAGE_SIZE = 100;
 const PETDEX_SOURCE_REPO = "https://github.com/crafter-station/petdex";
+const TENCENT_AEGIS_LOCAL_SDK_URL = "../../node_modules/aegis-web-sdk/lib/aegis.min.js";
+const TENCENT_AEGIS_SDK_URL = "https://tam.cdn-go.cn/aegis-sdk/latest/aegis.min.js";
 const PETDEX_ROW_BY_STATE = {
   idle: 0,
   sleeping: 0,
@@ -79,11 +85,9 @@ const VIEW_STATE_PRIORITY = {
 const EDITOR_GROUP_RECENT_MS = 15000;
 const PET_AVATAR_SWITCH_ICON = [
   '<svg class="pet-avatar-icon" viewBox="0 0 24 24" aria-hidden="true">',
-  '<path class="pet-avatar-icon-card pet-avatar-icon-card-back" d="M7.8 4.8h8.8c1 0 1.8.8 1.8 1.8v8.8c0 1-.8 1.8-1.8 1.8H7.8c-1 0-1.8-.8-1.8-1.8V6.6c0-1 .8-1.8 1.8-1.8Z"/>',
-  '<path class="pet-avatar-icon-card" d="M5.6 7.1h9.3c1 0 1.8.8 1.8 1.8v9.3c0 1-.8 1.8-1.8 1.8H5.6c-1 0-1.8-.8-1.8-1.8V8.9c0-1 .8-1.8 1.8-1.8Z"/>',
-  '<path class="pet-avatar-icon-face" d="M7.2 13.4h.1M13.1 13.4h.1M8 16.2c1.3 1 3.2 1 4.5 0"/>',
-  '<path class="pet-avatar-icon-sparkle" d="M18.3 3.6 19.1 6l2.1.8-2.1.8-.8 2.4-.8-2.4-2.1-.8 2.1-.8.8-2.4Z"/>',
-  '<path class="pet-avatar-icon-orbit" d="M19.3 13.4c.9 1.8.5 4-1 5.4M18.5 18.9h-2.7l1.1 1.2"/>',
+  '<circle class="pet-avatar-icon-head" cx="12" cy="8.2" r="3.8"/>',
+  '<path class="pet-avatar-icon-body" d="M4.8 20.2c.9-4.3 3.6-6.5 7.2-6.5s6.3 2.2 7.2 6.5"/>',
+  '<path class="pet-avatar-icon-switch" d="M18.5 5.5c1.2 1 1.9 2.5 1.9 4.1M20.4 5.6v3.1h-3.1"/>',
   "</svg>",
 ].join("");
 const IDE_ALIASES = {
@@ -94,6 +98,10 @@ const IDE_ALIASES = {
   kimi: "kimi-cli",
   qwen: "qwen-code",
   codeium: "windsurf",
+  "codeium-windsurf": "windsurf",
+  "windsurf-editor": "windsurf",
+  "devin-desktop": "windsurf",
+  devin: "windsurf",
 };
 
 function ideLogoSvg(className, body, viewBox = "0 0 32 32") {
@@ -106,16 +114,14 @@ function ideLogoSvg(className, body, viewBox = "0 0 32 32") {
   ].join("");
 }
 
-const OPENAI_ICON_PATH = "M14.949 6.547a3.94 3.94 0 0 0-.348-3.273 4.11 4.11 0 0 0-4.4-1.934A4.1 4.1 0 0 0 8.423.2 4.15 4.15 0 0 0 6.305.086a4.1 4.1 0 0 0-1.891.948 4.04 4.04 0 0 0-1.158 1.753 4.1 4.1 0 0 0-1.563.679A4 4 0 0 0 .554 4.72a3.99 3.99 0 0 0 .502 4.731 3.94 3.94 0 0 0 .346 3.274 4.11 4.11 0 0 0 4.402 1.933c.382.425.852.764 1.377.995.526.231 1.095.35 1.67.346 1.78.002 3.358-1.132 3.901-2.804a4.1 4.1 0 0 0 1.563-.68 4 4 0 0 0 1.14-1.253 3.99 3.99 0 0 0-.506-4.716m-6.097 8.406a3.05 3.05 0 0 1-1.945-.694l.096-.054 3.23-1.838a.53.53 0 0 0 .265-.455v-4.49l1.366.778q.02.011.025.035v3.722c-.003 1.653-1.361 2.992-3.037 2.996m-6.53-2.75a2.95 2.95 0 0 1-.36-2.01l.095.057L5.29 12.09a.53.53 0 0 0 .527 0l3.949-2.246v1.555a.05.05 0 0 1-.022.041L6.473 13.3c-1.454.826-3.311.335-4.15-1.098m-.85-6.94A3.02 3.02 0 0 1 3.07 3.949v3.785a.51.51 0 0 0 .262.451l3.93 2.237-1.366.779a.05.05 0 0 1-.048 0L2.585 9.342a2.98 2.98 0 0 1-1.113-4.094zm11.216 2.571L8.747 5.576l1.362-.776a.05.05 0 0 1 .048 0l3.265 1.86a3 3 0 0 1 1.173 1.207 2.96 2.96 0 0 1-.27 3.2 3.05 3.05 0 0 1-1.36.997V8.279a.52.52 0 0 0-.276-.445m1.36-2.015-.097-.057-3.226-1.855a.53.53 0 0 0-.53 0L6.249 6.153V4.598a.04.04 0 0 1 .019-.04L9.533 2.7a3.07 3.07 0 0 1 3.257.139c.474.325.843.778 1.066 1.303.223.526.289 1.103.191 1.664zM5.503 8.575 4.139 7.8a.05.05 0 0 1-.026-.037V4.049c0-.57.166-1.127.476-1.607s.752-.864 1.275-1.105a3.08 3.08 0 0 1 3.234.41l-.096.054-3.23 1.838a.53.53 0 0 0-.265.455zm.742-1.577 1.758-1 1.762 1v2l-1.755 1-1.762-1z";
-
 const IDE_LOGOS = {
   codex: {
     label: "Codex",
     logo: ideLogoSvg("ide-logo-codex", [
-      '<defs><linearGradient id="codexLogoBg" x1="1" y1="1" x2="15" y2="15"><stop stop-color="#10A37F"/><stop offset=".52" stop-color="#2563EB"/><stop offset="1" stop-color="#7C3AED"/></linearGradient></defs>',
-      '<rect width="16" height="16" rx="4.2" fill="url(#codexLogoBg)"/>',
-      `<path d="${OPENAI_ICON_PATH}" fill="#fff"/>`,
-    ].join(""), "0 0 16 16"),
+      '<path d="M19.503 0H4.496A4.496 4.496 0 0 0 0 4.496v15.007A4.496 4.496 0 0 0 4.496 24h15.007A4.496 4.496 0 0 0 24 19.503V4.496A4.496 4.496 0 0 0 19.503 0z" fill="#fff"/>',
+      '<path d="M9.064 3.344a4.578 4.578 0 0 1 2.285-.312c1 .115 1.891.54 2.673 1.275a.09.09 0 0 0 .08.021 4.55 4.55 0 0 1 3.046.275l.047.022.116.057a4.581 4.581 0 0 1 2.188 2.399c.209.51.313 1.041.315 1.595a4.24 4.24 0 0 1-.134 1.223.123.123 0 0 0 .03.115c.594.607.988 1.33 1.183 2.17.289 1.425-.007 2.71-.887 3.854l-.136.166a4.548 4.548 0 0 1-2.201 1.388.123.123 0 0 0-.081.076c-.191.551-.383 1.023-.74 1.494-.9 1.187-2.222 1.846-3.711 1.838-1.187-.006-2.239-.44-3.157-1.302a.107.107 0 0 0-.105-.024c-.388.125-.78.143-1.204.138a4.441 4.441 0 0 1-1.945-.466 4.544 4.544 0 0 1-1.61-1.335c-.152-.202-.303-.392-.414-.617a5.81 5.81 0 0 1-.37-.961 4.582 4.582 0 0 1-.014-2.298.124.124 0 0 0 .006-.056.085.085 0 0 0-.027-.048 4.467 4.467 0 0 1-1.034-1.651 3.896 3.896 0 0 1-.251-1.192 5.189 5.189 0 0 1 .141-1.6c.337-1.112.982-1.985 1.933-2.618.212-.141.413-.251.601-.33.215-.089.43-.164.646-.227a.098.098 0 0 0 .065-.066 4.51 4.51 0 0 1 .829-1.615 4.535 4.535 0 0 1 1.837-1.388zm3.482 10.565a.637.637 0 0 0 0 1.272h3.636a.637.637 0 1 0 0-1.272h-3.636zM8.462 9.23a.637.637 0 0 0-1.106.631l1.272 2.224-1.266 2.136a.636.636 0 1 0 1.095.649l1.454-2.455a.636.636 0 0 0 .005-.64L8.462 9.23z" fill="url(#codexLogoMark)"/>',
+      '<defs><linearGradient id="codexLogoMark" x1="12" x2="12" y1="3" y2="21" gradientUnits="userSpaceOnUse"><stop stop-color="#B1A7FF"/><stop offset=".5" stop-color="#7A9DFF"/><stop offset="1" stop-color="#3941FF"/></linearGradient></defs>',
+    ].join(""), "0 0 24 24"),
   },
   cursor: {
     label: "Cursor",
@@ -128,21 +134,16 @@ const IDE_LOGOS = {
   windsurf: {
     label: "Windsurf",
     logo: ideLogoSvg("ide-logo-windsurf", [
-      '<defs><linearGradient id="windsurfLogoBg" x1="4" y1="3" x2="28" y2="29"><stop stop-color="#08111F"/><stop offset=".48" stop-color="#0C4A6E"/><stop offset="1" stop-color="#14B8A6"/></linearGradient><linearGradient id="windsurfWave" x1="5" y1="9" x2="27" y2="23"><stop stop-color="#A7F3D0"/><stop offset=".48" stop-color="#38BDF8"/><stop offset="1" stop-color="#FDE68A"/></linearGradient></defs>',
-      '<rect width="32" height="32" rx="8" fill="url(#windsurfLogoBg)"/>',
-      '<path d="M5.2 18.8c4.2-6.7 9.3-9.7 15.5-9 3.2.4 5.4 1.8 6.8 4.3-4-1.9-7.9-1.7-11.7.6-2.5 1.5-4.4 3.7-5.7 6.5 4.5-3.7 9-4.8 13.6-3.2 1.4.5 2.7 1.3 3.7 2.4-3.5-.5-6.6.1-9.2 1.9-2.2 1.4-3.9 3.5-5.2 6.3L5.2 18.8Z" fill="url(#windsurfWave)"/>',
-      '<path d="M7.3 18.8c3.5-4.3 7.5-6.1 12-5.5" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" opacity=".86"/>',
-    ].join("")),
+      '<path d="M23.2312 25.1611L23.2312 25.1651C24.079 24.6758 25.0422 24.4173 26.0173 24.4173L26.089 24.4173L26.1904 24.4193C26.2581 24.4212 26.3238 24.4232 26.3914 24.4292L26.4412 24.4332C27.2452 24.4928 28.0094 24.7196 28.7218 25.1114C28.7934 25.1512 28.8631 25.1909 28.9328 25.2327C28.9865 25.2665 29.0402 25.3003 29.0959 25.3361L29.1477 25.3699C29.5875 25.6663 29.9835 26.0263 30.3338 26.4479C30.3815 26.5056 30.4273 26.5633 30.483 26.6369L30.5109 26.6727C30.5467 26.7204 30.5825 26.7701 30.6163 26.8198L30.678 26.9093C30.7059 26.9511 30.7318 26.9929 30.7576 27.0346C30.7795 27.0704 30.8014 27.1062 30.8233 27.142L30.8611 27.2057C31.3507 28.051 31.6094 29.0176 31.6094 29.9961L31.6074 29.9961C31.6074 30.9766 31.3487 31.9412 30.8591 32.7865L30.7736 32.9317C30.7377 32.9894 30.7019 33.045 30.6661 33.1007L30.6382 33.1425C30.1845 33.8088 29.6074 34.3557 28.9089 34.7774C28.8392 34.8191 28.7696 34.8589 28.6979 34.8987C28.6422 34.9305 28.5845 34.9584 28.5268 34.9882L28.4711 35.016C27.9934 35.2487 27.484 35.4118 26.9447 35.5033C26.871 35.5152 26.7974 35.5252 26.7238 35.5351L26.6621 35.5431C26.6024 35.5491 26.5427 35.555 26.481 35.561C26.4452 35.563 26.4094 35.567 26.3735 35.5689C26.3238 35.5729 26.276 35.5749 26.2263 35.5749C26.1845 35.5749 26.1427 35.5769 26.1009 35.5789L26.0253 35.5789L26.0213 35.5789C25.0442 35.5789 24.081 35.3203 23.2332 34.8311L18.067 31.8517L7.73063 37.8263L7.72664 49.7497L18.063 55.7144L28.4034 49.7477L28.4034 43.783C28.4034 42.8025 28.6621 41.8379 29.1517 40.9926L29.2372 40.8474C29.2731 40.7898 29.3089 40.7341 29.3447 40.6784L29.3726 40.6366C29.8263 39.9703 30.4034 39.4234 31.1019 39.0018C31.1716 38.96 31.2412 38.9202 31.3129 38.8804C31.3686 38.8506 31.4243 38.8208 31.484 38.7909L31.5397 38.7631C32.0173 38.5304 32.5268 38.3673 33.0661 38.2758C33.1397 38.2639 33.2134 38.2539 33.287 38.244L33.3487 38.236C33.4084 38.2301 33.4681 38.2241 33.5318 38.2181L33.6373 38.2102C33.687 38.2062 33.7348 38.2042 33.7845 38.2042C33.8263 38.2042 33.8681 38.2022 33.9099 38.2002L33.9855 38.2002L33.9895 38.2002C34.9666 38.2002 35.9298 38.4588 36.7776 38.9481L41.9458 41.9274L52.2861 35.9608L52.2822 24.0334L41.9478 18.0668L36.7796 21.0541L36.7756 21.0461C35.9258 21.5354 34.9646 21.788 33.9815 21.7939L33.9159 21.7939L33.8124 21.7919C33.7447 21.79 33.6791 21.788 33.6114 21.782L33.5616 21.778C32.7577 21.7184 31.9935 21.4916 31.281 21.0998C31.2094 21.06 31.1397 21.0203 31.0701 20.9785C31.0144 20.9447 30.9606 20.9089 30.9069 20.8751L30.8552 20.8413C30.4154 20.5449 30.0193 20.1849 29.6691 19.7633C29.6213 19.7056 29.5755 19.6479 29.5198 19.5743L29.492 19.5385C29.4561 19.4908 29.4203 19.4411 29.3865 19.3914L29.3248 19.3019C29.2969 19.2601 29.2711 19.2183 29.2452 19.1766C29.2233 19.1408 29.1994 19.105 29.1775 19.0672L29.1417 19.0055C28.6522 18.1602 28.3934 17.1936 28.3934 16.2151L28.3915 16.2151L28.3915 10.2524L18.1048 4.31363L18.0551 4.28578L7.71869 10.2604L7.71471 22.1838L18.0511 28.1484L23.2213 25.1651L23.2312 25.1611Z" fill="currentColor"/>',
+    ].join(""), "0 0 60 60"),
   },
   "claude-code": {
     label: "Claude Code",
-    logo: ideLogoSvg("ide-logo-claude", [
-      '<defs><linearGradient id="claudeLogoBg" x1="4" y1="3" x2="28" y2="29"><stop stop-color="#FFF7ED"/><stop offset=".46" stop-color="#FDBA74"/><stop offset="1" stop-color="#C2410C"/></linearGradient></defs>',
-      '<rect width="32" height="32" rx="8" fill="url(#claudeLogoBg)"/>',
-      '<path d="M16 4.4 19.4 12.6 28.1 16 19.4 19.4 16 27.6 12.6 19.4 3.9 16 12.6 12.6 16 4.4Z" fill="#8A3A16"/>',
-      '<circle cx="16" cy="16" r="3.1" fill="#FFF7ED"/>',
-      '<path d="M16 9.7v12.6M9.7 16h12.6" stroke="#FED7AA" stroke-width="1.4" stroke-linecap="round"/>',
-    ].join("")),
+    logo: [
+      '<span class="ide-logo ide-logo-claude">',
+      '<img class="ide-logo-image" src="assets/claude-logo.png" alt="">',
+      "</span>",
+    ].join(""),
   },
   "gemini-cli": {
     label: "Gemini CLI",
@@ -292,8 +293,26 @@ const petPickerKind = document.getElementById("petPickerKind");
 const petPickerRefreshBtn = document.getElementById("petPickerRefreshBtn");
 const petPickerCloseBtn = document.getElementById("petPickerCloseBtn");
 const petPickerStatus = document.getElementById("petPickerStatus");
+const petPickerPagination = document.getElementById("petPickerPagination");
+const petPickerPrevPageBtn = document.getElementById("petPickerPrevPageBtn");
+const petPickerPageInfo = document.getElementById("petPickerPageInfo");
+const petPickerPageInput = document.getElementById("petPickerPageInput");
+const petPickerPageMeta = document.getElementById("petPickerPageMeta");
+const petPickerNextPageBtn = document.getElementById("petPickerNextPageBtn");
 const petChoiceGrid = document.getElementById("petChoiceGrid");
-const petPickerSource = document.getElementById("petPickerSource");
+const petPickerTabs = Array.from(document.querySelectorAll("[data-pet-picker-tab]"));
+const petPickerPanels = Array.from(document.querySelectorAll("[data-pet-picker-panel]"));
+const localPetName = document.getElementById("localPetName");
+const localPetSlug = document.getElementById("localPetSlug");
+const localPetSpritesheet = document.getElementById("localPetSpritesheet");
+const localPetFileMeta = document.getElementById("localPetFileMeta");
+const localPetApplyBtn = document.getElementById("localPetApplyBtn");
+const localPetStatus = document.getElementById("localPetStatus");
+const aiPetFrontView = document.getElementById("aiPetFrontView");
+const aiPetLeftView = document.getElementById("aiPetLeftView");
+const aiPetRightView = document.getElementById("aiPetRightView");
+const aiPetGenerateBtn = document.getElementById("aiPetGenerateBtn");
+const aiPetStatus = document.getElementById("aiPetStatus");
 const firmwareModal = document.getElementById("firmwareModal");
 const firmwareTarget = document.getElementById("firmwareTarget");
 const firmwarePort = document.getElementById("firmwarePort");
@@ -318,8 +337,12 @@ let petdexFrame = 0;
 let petdexImageMeta = new Map();
 let petdexImageLoading = new Map();
 let activePetPickerId = "";
+let activePetPickerTab = "petdex";
 let petPickerQuery = "";
 let petPickerKindFilter = "";
+let petPickerPage = 0;
+let localPetImageInfo = null;
+let localPetSlugTouched = false;
 let petViewOrder = [];
 let petSelectionAliasesByViewId = new Map();
 let lastBluetoothDevices = [];
@@ -329,6 +352,7 @@ let firmwareModalOpen = false;
 let firmwareFlashing = false;
 let latestHardwarePets = [];
 let connectionMessage = { message: "connection.disconnected", values: {}, connected: false };
+let trackedActivePetKeys = new Set();
 let latestSnapshot = {
   aggregate: {
     state: "idle",
@@ -339,6 +363,168 @@ let latestSnapshot = {
   },
   sessions: [],
 };
+let analyticsClient = null;
+let analyticsConfig = null;
+let analyticsQueue = [];
+let analyticsReady = false;
+let aegisSdkPromise = null;
+
+function sanitizeAnalyticsEventName(eventName) {
+  if (typeof eventName !== "string") return "";
+  return eventName.replace(/[^a-zA-Z0-9_.-]/g, "_").slice(0, 64);
+}
+
+function sanitizeAnalyticsProps(props = {}) {
+  const out = {};
+  if (!props || typeof props !== "object" || Array.isArray(props)) return out;
+  for (const [key, value] of Object.entries(props)) {
+    if (!/^[a-zA-Z0-9_.-]{1,64}$/.test(key)) continue;
+    if (typeof value === "string") out[key] = value.slice(0, 160);
+    else if (typeof value === "number" && Number.isFinite(value)) out[key] = value;
+    else if (typeof value === "boolean") out[key] = value;
+  }
+  return out;
+}
+
+function safeAnalyticsText(value, max = 160) {
+  if (value === undefined || value === null) return "";
+  return String(value).slice(0, max);
+}
+
+function compactAnalyticsJson(value, max = 1024) {
+  try {
+    return JSON.stringify(value).slice(0, max);
+  } catch {
+    return "";
+  }
+}
+
+function analyticsDebugLog(...args) {
+  if (!analyticsConfig || !analyticsConfig.debug) return;
+  console.info("[analytics]", ...args);
+}
+
+function reportAnalyticsEvent(eventName, props = {}) {
+  const name = sanitizeAnalyticsEventName(eventName);
+  if (!name) return;
+  const payload = {
+    ...(analyticsConfig && analyticsConfig.commonProps ? analyticsConfig.commonProps : {}),
+    ...sanitizeAnalyticsProps(props),
+  };
+  if (!analyticsReady || !analyticsClient || typeof analyticsClient.reportEvent !== "function") {
+    analyticsDebugLog("queue", name, payload);
+    analyticsQueue.push({ eventName: name, props: payload });
+    if (analyticsQueue.length > 100) analyticsQueue = analyticsQueue.slice(-100);
+    return;
+  }
+  const eventPayload = {
+    name,
+    ext1: safeAnalyticsText(payload.pet_slug || payload.platform || ""),
+    ext2: safeAnalyticsText(payload.pet_source || payload.pet_kind || payload.appVersion || ""),
+    ext3: compactAnalyticsJson(payload),
+  };
+  analyticsDebugLog("reportEvent", eventPayload);
+  analyticsClient.reportEvent(eventPayload);
+}
+
+function flushAnalyticsQueue() {
+  const events = analyticsQueue;
+  analyticsQueue = [];
+  for (const event of events) reportAnalyticsEvent(event.eventName, event.props);
+}
+
+function loadScript(src) {
+  return new Promise((resolve) => {
+    const script = document.createElement("script");
+    const timer = window.setTimeout(() => resolve(false), 5000);
+    script.src = src;
+    script.async = true;
+    script.onload = () => {
+      window.clearTimeout(timer);
+      resolve(typeof window.Aegis === "function");
+    };
+    script.onerror = () => {
+      window.clearTimeout(timer);
+      resolve(false);
+    };
+    document.head.appendChild(script);
+  });
+}
+
+async function loadTencentAegisSdk() {
+  if (typeof window.Aegis === "function") return true;
+  if (aegisSdkPromise) return aegisSdkPromise;
+  aegisSdkPromise = (async () => {
+    if (await loadScript(TENCENT_AEGIS_LOCAL_SDK_URL)) {
+      analyticsDebugLog("sdk-loaded", TENCENT_AEGIS_LOCAL_SDK_URL);
+      return true;
+    }
+    analyticsDebugLog("sdk-local-load-failed", TENCENT_AEGIS_LOCAL_SDK_URL);
+    if (await loadScript(TENCENT_AEGIS_SDK_URL)) {
+      analyticsDebugLog("sdk-loaded", TENCENT_AEGIS_SDK_URL);
+      return true;
+    }
+    return false;
+  })();
+  return aegisSdkPromise;
+}
+
+async function initializeAnalytics() {
+  try {
+    if (!window.codePet || typeof window.codePet.getAnalyticsConfig !== "function") return;
+    const config = await window.codePet.getAnalyticsConfig();
+    analyticsConfig = config && typeof config === "object" ? config : null;
+    analyticsDebugLog("config", analyticsConfig);
+    if (!analyticsConfig || !analyticsConfig.enabled || !analyticsConfig.id) return;
+    if (!(await loadTencentAegisSdk())) {
+      analyticsDebugLog("sdk-load-failed", TENCENT_AEGIS_SDK_URL);
+      return;
+    }
+    const aegisOptions = {
+      id: analyticsConfig.id,
+      uin: analyticsConfig.installId || "",
+      hostUrl: analyticsConfig.hostUrl || "https://rumt-zh.com",
+      pageUrl: "app://vibe-pet/desktop",
+      version: analyticsConfig.commonProps && analyticsConfig.commonProps.appVersion,
+      reportApiSpeed: false,
+      reportAssetSpeed: false,
+      spa: false,
+    };
+    if (analyticsConfig.debug) {
+      aegisOptions.beforeRequest = (data) => {
+        analyticsDebugLog("beforeRequest", data);
+        return data;
+      };
+      aegisOptions.afterRequest = (data) => {
+        analyticsDebugLog("afterRequest", data);
+      };
+    }
+    analyticsDebugLog("init", {
+      id: aegisOptions.id,
+      hostUrl: aegisOptions.hostUrl,
+      hostSource: analyticsConfig.hostSource,
+      hostRegion: analyticsConfig.hostRegion,
+      pageUrl: aegisOptions.pageUrl,
+      version: aegisOptions.version,
+    });
+    analyticsClient = new window.Aegis(aegisOptions);
+    analyticsReady = true;
+    const initialEvents = Array.isArray(analyticsConfig.initialEvents) ? analyticsConfig.initialEvents : [];
+    for (const event of initialEvents) {
+      reportAnalyticsEvent(event.eventName, {
+        ...(event.props || {}),
+        session_id: event.sessionId || analyticsConfig.sessionId || "",
+        event_timestamp: event.timestamp || "",
+      });
+    }
+    flushAnalyticsQueue();
+    if (analyticsConfig.debug) {
+      reportAnalyticsEvent("analytics_probe", { probe: true });
+    }
+  } catch (err) {
+    analyticsDebugLog("init-error", err && err.message ? err.message : String(err));
+  }
+}
 
 function t(key, values) {
   return window.VibePetI18n ? window.VibePetI18n.t(key, values) : key;
@@ -430,13 +616,21 @@ function compactPersona(persona) {
   };
 }
 
+function hardwareSpriteUrl(url) {
+  if (typeof url !== "string") return "";
+  if (url.startsWith("data:") || url.startsWith("blob:")) return "";
+  return url;
+}
+
 function packetWithPersona(packet, persona) {
   const next = { ...(packet || {}) };
   const compact = compactPersona(persona);
   next.p = compact.slug;
   next.d = compact.displayName;
   if (compact.kind) next.k = compact.kind;
-  if (compact.spritesheetUrl) next.u = compact.spritesheetUrl;
+  const spriteUrl = hardwareSpriteUrl(compact.spritesheetUrl);
+  if (spriteUrl) next.u = spriteUrl;
+  else delete next.u;
   return next;
 }
 
@@ -482,6 +676,47 @@ function savePetSelections() {
   try {
     localStorage.setItem(PET_SELECTION_STORAGE_KEY, JSON.stringify(petSelections));
   } catch {}
+}
+
+function trackEvent(eventName, props = {}) {
+  reportAnalyticsEvent(eventName, props);
+}
+
+function petAnalyticsSource(persona = {}) {
+  if (persona.slug === BUILTIN_PET.slug || persona.kind === "builtin") return "builtin";
+  if (persona.kind === "local") return "local";
+  if (persona.kind === "ai") return "ai";
+  if (persona.loading) return "loading";
+  return "petdex";
+}
+
+function petAnalyticsProps(persona = {}, extra = {}) {
+  const source = petAnalyticsSource(persona);
+  const publicSlug = source === "local" || source === "ai" ? `custom_${source}` : persona.slug || "unknown";
+  return {
+    pet_slug: publicSlug,
+    pet_kind: persona.kind || source,
+    pet_source: source,
+    is_builtin: source === "builtin",
+    is_custom: source === "local" || source === "ai",
+    ...extra,
+  };
+}
+
+function trackPetEvent(eventName, persona, extra = {}) {
+  trackEvent(eventName, petAnalyticsProps(persona, extra));
+}
+
+function trackActivePets(views = []) {
+  for (const view of views) {
+    const persona = petForView(view);
+    const props = petAnalyticsProps(persona);
+    if (props.pet_source === "loading") continue;
+    const key = `${props.pet_source}:${props.pet_slug}`;
+    if (trackedActivePetKeys.has(key)) continue;
+    trackedActivePetKeys.add(key);
+    trackEvent("pet_active", props);
+  }
 }
 
 function normalizePetdexPet(pet) {
@@ -590,6 +825,7 @@ function setPetForView(viewId, slug, persona) {
     saveCachedPetdexPets();
   }
   savePetSelections();
+  trackPetEvent("pet_selected", persona || petdexPetsBySlug.get(slug) || BUILTIN_PET, { picker_tab: activePetPickerTab });
 }
 
 function petdexFrameX(frame, cols = PETDEX_DEFAULT_COLS) {
@@ -686,15 +922,58 @@ function selectablePetdexPets() {
   return petdexPets.filter((pet) => pet.slug !== BUILTIN_PET.slug);
 }
 
-function filteredPetdexPets(query, kind = petPickerKindFilter) {
+function matchingPetdexPets(query, kind = petPickerKindFilter) {
   const needle = String(query || "").trim().toLowerCase();
   const kindFilter = String(kind || "").trim();
-  const matches = selectablePetdexPets().filter((pet) => {
+  return selectablePetdexPets().filter((pet) => {
     if (kindFilter && (pet.kind || "") !== kindFilter) return false;
     if (!needle) return true;
     return `${pet.displayName} ${pet.slug} ${pet.kind || ""} ${pet.submittedBy || ""}`.toLowerCase().includes(needle);
   });
-  return matches.slice(0, PETDEX_PICKER_LIMIT);
+}
+
+function petdexPickerPageState(query, kind = petPickerKindFilter) {
+  const matches = matchingPetdexPets(query, kind);
+  const total = matches.length;
+  const pageCount = Math.max(1, Math.ceil(total / PETDEX_PICKER_PAGE_SIZE));
+  const page = total ? Math.max(0, Math.min(petPickerPage, pageCount - 1)) : 0;
+  petPickerPage = page;
+  const start = page * PETDEX_PICKER_PAGE_SIZE;
+  const end = Math.min(start + PETDEX_PICKER_PAGE_SIZE, total);
+  return {
+    pets: matches.slice(start, end),
+    total,
+    page,
+    pageCount,
+    start,
+    end,
+  };
+}
+
+function renderPetdexPagination(state) {
+  if (!petPickerPagination || !petPickerPageInfo || !petPickerPageInput || !petPickerPageMeta || !petPickerPrevPageBtn || !petPickerNextPageBtn) return;
+  const total = state && state.total ? state.total : 0;
+  const show = total > 0;
+  petPickerPagination.hidden = !show;
+  petPickerPrevPageBtn.disabled = !show || state.page <= 0;
+  petPickerNextPageBtn.disabled = !show || state.page >= state.pageCount - 1;
+  petPickerPageInput.disabled = !show;
+  petPickerPageInput.max = String(state && state.pageCount ? state.pageCount : 1);
+  petPickerPageInput.value = String(state && state.total ? state.page + 1 : 1);
+  petPickerPageInfo.textContent = total ? `${state.page + 1} / ${state.pageCount}` : "1 / 1";
+  petPickerPageMeta.textContent = `总数量 ${total} · 每页 ${PETDEX_PICKER_PAGE_SIZE}`;
+}
+
+function setPetdexPickerPage(page) {
+  petPickerPage = Math.max(0, Number(page) || 0);
+  renderPetPickerModal();
+  if (petChoiceGrid) petChoiceGrid.scrollTop = 0;
+}
+
+function jumpPetdexPickerPageFromInput() {
+  if (!petPickerPageInput) return;
+  const page = Math.max(1, Math.min(Number(petPickerPageInput.max) || 1, Number(petPickerPageInput.value) || 1));
+  setPetdexPickerPage(page - 1);
 }
 
 function petdexKindOptions() {
@@ -717,6 +996,182 @@ function syncPetKindFilter() {
   }
   petPickerKind.value = kindOptions.includes(previous) ? previous : "";
   petPickerKindFilter = petPickerKind.value;
+}
+
+function safePetPickerTab(tab) {
+  return ["petdex", "local", "ai"].includes(tab) ? tab : "petdex";
+}
+
+function renderPetPickerTabs() {
+  activePetPickerTab = safePetPickerTab(activePetPickerTab);
+  for (const tab of petPickerTabs) {
+    const active = tab.dataset.petPickerTab === activePetPickerTab;
+    tab.setAttribute("aria-selected", active ? "true" : "false");
+    tab.tabIndex = active ? 0 : -1;
+  }
+  for (const panel of petPickerPanels) {
+    panel.hidden = panel.dataset.petPickerPanel !== activePetPickerTab;
+  }
+}
+
+function setPetPickerTab(tab) {
+  activePetPickerTab = safePetPickerTab(tab);
+  renderPetPickerModal();
+  if (activePetPickerTab === "petdex") setTimeout(() => petPickerSearch.focus(), 0);
+}
+
+function slugifyCustomPet(value, options = {}) {
+  const slug = String(value || "")
+    .normalize("NFKD")
+    .toLowerCase()
+    .replace(/[^\w\s-]/g, "")
+    .trim()
+    .replace(/[\s_]+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 40);
+  return slug || (options.fallback === false ? "" : `pet-${Date.now().toString(36)}`);
+}
+
+function selectedFile(input) {
+  return input && input.files && input.files[0] ? input.files[0] : null;
+}
+
+function isLocalPetSpritesheet(file) {
+  if (!file) return false;
+  return ["image/png", "image/webp"].includes(file.type) || /\.(png|webp)$/i.test(file.name || "");
+}
+
+function setLocalPetMeta(message, state = "") {
+  if (!localPetFileMeta) return;
+  localPetFileMeta.textContent = message;
+  if (state) localPetFileMeta.dataset.state = state;
+  else delete localPetFileMeta.dataset.state;
+}
+
+function setLocalPetStatus(message) {
+  if (localPetStatus) localPetStatus.textContent = message;
+}
+
+function inspectImageFile(file) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const image = new Image();
+    image.onload = () => {
+      URL.revokeObjectURL(url);
+      resolve({ width: image.naturalWidth, height: image.naturalHeight });
+    };
+    image.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error("无法读取图片尺寸。"));
+    };
+    image.src = url;
+  });
+}
+
+function readFileAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ""));
+    reader.onerror = () => reject(new Error("无法读取本地图片。"));
+    reader.readAsDataURL(file);
+  });
+}
+
+function localPetNameFromFile(file) {
+  return String(file && file.name ? file.name : "")
+    .replace(/\.(png|webp)$/i, "")
+    .replace(/[-_]+/g, " ")
+    .trim();
+}
+
+function localPetDimensionStatus(info) {
+  if (!info) return { ok: false, message: "尚未选择图片。" };
+  const cols = info.width / PETDEX_FRAME_WIDTH;
+  const rows = info.height / PETDEX_FRAME_HEIGHT;
+  const ok = info.width === PETDEX_REQUIRED_WIDTH && info.height === PETDEX_REQUIRED_HEIGHT;
+  const grid = Number.isInteger(cols) && Number.isInteger(rows) ? `${rows} 行 × ${cols} 列` : "无法整除为标准帧";
+  return {
+    ok,
+    message: ok
+      ? `尺寸正确：${info.width}×${info.height}px，${grid}。`
+      : `尺寸不符合 Petdex 规格：当前 ${info.width}×${info.height}px（${grid}），需要 ${PETDEX_REQUIRED_WIDTH}×${PETDEX_REQUIRED_HEIGHT}px。`,
+  };
+}
+
+async function inspectLocalPetSpritesheet() {
+  const file = selectedFile(localPetSpritesheet);
+  localPetImageInfo = null;
+  if (!file) {
+    setLocalPetMeta("尚未选择图片。");
+    return null;
+  }
+
+  if (!isLocalPetSpritesheet(file)) {
+    setLocalPetMeta("请选择 .webp 或 .png spritesheet。", "error");
+    return null;
+  }
+
+  const inferredName = localPetNameFromFile(file);
+  if (localPetName && !localPetName.value.trim() && inferredName) localPetName.value = inferredName;
+  if (localPetSlug && !localPetSlug.value.trim() && inferredName) localPetSlug.value = slugifyCustomPet(inferredName, { fallback: false });
+
+  setLocalPetMeta("正在检查图片尺寸...");
+  const info = await inspectImageFile(file);
+  if (selectedFile(localPetSpritesheet) !== file) return null;
+  localPetImageInfo = info;
+  const status = localPetDimensionStatus(info);
+  setLocalPetMeta(status.message, status.ok ? "ok" : "error");
+  return { ...info, ok: status.ok };
+}
+
+async function applyLocalPetUpload() {
+  const file = selectedFile(localPetSpritesheet);
+  if (!activePetPickerId) return;
+  if (!file) {
+    setLocalPetStatus("请先选择 spritesheet 图片。");
+    return;
+  }
+  if (!isLocalPetSpritesheet(file)) {
+    setLocalPetStatus("只支持 .webp 或 .png spritesheet。");
+    return;
+  }
+
+  try {
+    const info = localPetImageInfo ? { ...localPetImageInfo, ok: localPetDimensionStatus(localPetImageInfo).ok } : await inspectLocalPetSpritesheet();
+    if (!info || !info.ok) {
+      setLocalPetStatus("图片尺寸还不符合 Petdex 规格，请调整后再上传。");
+      return;
+    }
+
+    setLocalPetStatus("正在保存本地角色...");
+    const displayName = clampText((localPetName && localPetName.value) || localPetNameFromFile(file) || "Local Pet", 48);
+    const slug = `local-${slugifyCustomPet((localPetSlug && localPetSlug.value) || displayName)}`;
+    const spritesheetUrl = await readFileAsDataUrl(file);
+    const persona = {
+      slug,
+      displayName,
+      kind: "local",
+      submittedBy: "Local upload",
+      spritesheetUrl,
+    };
+    petdexImageMeta.set(spritesheetUrl, { cols: PETDEX_REQUIRED_COLS, rows: PETDEX_REQUIRED_ROWS });
+    setPetForView(activePetPickerId, slug, persona);
+    closePetPicker();
+    renderSnapshot(latestSnapshot);
+  } catch (err) {
+    setLocalPetStatus(err && err.message ? err.message : "本地角色保存失败。");
+  }
+}
+
+function updateAiPetStatus() {
+  if (!aiPetStatus) return;
+  const front = selectedFile(aiPetFrontView);
+  const optionalCount = [selectedFile(aiPetLeftView), selectedFile(aiPetRightView)].filter(Boolean).length;
+  aiPetStatus.textContent = front
+    ? `已选择正视图${optionalCount ? `，以及 ${optionalCount} 张侧视图` : ""}。生成接口预留中。`
+    : "请先上传正视图。生成接口已预留，当前版本先支持页面和素材收集。";
+  if (aiPetGenerateBtn) aiPetGenerateBtn.disabled = true;
 }
 
 function isActiveState(state) {
@@ -744,7 +1199,7 @@ function normalizeAgentId(value) {
   if (IDE_LOGOS[id]) return id;
   if (id.includes("codex")) return "codex";
   if (id.includes("cursor")) return "cursor";
-  if (id.includes("windsurf") || id.includes("codeium")) return "windsurf";
+  if (id.includes("windsurf") || id.includes("codeium") || id.includes("devin")) return "windsurf";
   if (id.includes("claude")) return "claude-code";
   if (id.includes("gemini")) return "gemini-cli";
   if (id.includes("copilot")) return "copilot-cli";
@@ -1021,41 +1476,34 @@ function renderPetPickerModal() {
   }
 
   petPickerModal.hidden = false;
+  renderPetPickerTabs();
   petPickerSearch.value = petPickerQuery;
   syncPetKindFilter();
   petChoiceGrid.replaceChildren();
-  petChoiceGrid.append(createPetChoice(activePetPickerId, BUILTIN_PET, selectedPetSlug(activePetPickerId)));
 
   petPickerRefreshBtn.disabled = petdexLoading;
-  petPickerSource.href = PETDEX_SOURCE_REPO;
-  petPickerSource.textContent = t("pet.source", { source: PETDEX_SOURCE_REPO.replace(/^https?:\/\//, "") });
   if (petdexLoading) {
+    petPickerStatus.hidden = false;
     petPickerStatus.textContent = t("pet.loadingCharacters");
+    renderPetdexPagination(null);
     return;
   }
 
   if (petdexError) {
+    petPickerStatus.hidden = false;
     petPickerStatus.textContent = t("pet.unavailable", { message: petdexError });
+  } else {
+    petPickerStatus.hidden = true;
+    petPickerStatus.textContent = "";
   }
 
-  const totalFiltered = selectablePetdexPets().filter((pet) => {
-    const kindFilter = String(petPickerKindFilter || "").trim();
-    const needle = String(petPickerQuery || "").trim().toLowerCase();
-    if (kindFilter && (pet.kind || "") !== kindFilter) return false;
-    if (!needle) return true;
-    return `${pet.displayName} ${pet.slug} ${pet.kind || ""} ${pet.submittedBy || ""}`.toLowerCase().includes(needle);
-  }).length;
-  const pets = filteredPetdexPets(petPickerQuery, petPickerKindFilter);
+  const pageState = petdexPickerPageState(petPickerQuery, petPickerKindFilter);
+  const pets = pageState.pets;
   for (const pet of pets) {
     petChoiceGrid.append(createPetChoice(activePetPickerId, pet, selectedPetSlug(activePetPickerId)));
   }
 
-  const capped = totalFiltered > pets.length;
-  if (!petdexError) {
-    petPickerStatus.textContent = capped
-      ? t("pet.shownCapped", { count: pets.length, total: totalFiltered })
-      : t("pet.shown", { count: pets.length });
-  }
+  renderPetdexPagination(pageState);
 
   if (!pets.length && !petdexError) {
     const empty = document.createElement("div");
@@ -1067,9 +1515,13 @@ function renderPetPickerModal() {
 
 function openPetPicker(viewId) {
   activePetPickerId = viewId;
+  activePetPickerTab = "petdex";
   petPickerQuery = "";
   petPickerKindFilter = "";
+  petPickerPage = 0;
   petPickerKind.value = "";
+  setLocalPetStatus("本地角色只保存在这台设备上。");
+  updateAiPetStatus();
   ensurePetdexPets();
   renderPetPickerModal();
   setTimeout(() => petPickerSearch.focus(), 0);
@@ -1204,6 +1656,7 @@ function renderSnapshot(snapshot, options = {}) {
   latestSnapshot = snapshot || latestSnapshot;
   const views = buildViews(latestSnapshot);
   if (activePetPickerId && !views.some((view) => view.id === activePetPickerId)) activePetPickerId = "";
+  trackActivePets(views);
   renderPetGrid(views);
   syncDesktopPets(views);
   renderPetPickerModal();
@@ -1244,6 +1697,9 @@ function applyTheme(theme) {
   try {
     localStorage.setItem("code-pet-theme", nextTheme);
   } catch {}
+  if (window.codePet && typeof window.codePet.setWindowTheme === "function") {
+    window.codePet.setWindowTheme(nextTheme);
+  }
 }
 
 function hideDevicePicker() {
@@ -1551,21 +2007,67 @@ window.addEventListener("code-pet:language-change", () => {
     renderFirmwareTargets();
     renderFirmwarePorts();
   }
+  if (activePetPickerId) renderPetPickerModal();
   renderSnapshot(latestSnapshot);
 });
 
+for (const tab of petPickerTabs) {
+  tab.addEventListener("click", () => setPetPickerTab(tab.dataset.petPickerTab));
+}
+
 petPickerSearch.addEventListener("input", () => {
   petPickerQuery = petPickerSearch.value;
+  petPickerPage = 0;
   renderPetPickerModal();
 });
 
 petPickerKind.addEventListener("change", () => {
   petPickerKindFilter = petPickerKind.value;
+  petPickerPage = 0;
   renderPetPickerModal();
+});
+
+petPickerPrevPageBtn.addEventListener("click", () => {
+  setPetdexPickerPage(petPickerPage - 1);
+});
+
+petPickerNextPageBtn.addEventListener("click", () => {
+  setPetdexPickerPage(petPickerPage + 1);
+});
+
+petPickerPageInput.addEventListener("change", jumpPetdexPickerPageFromInput);
+
+petPickerPageInput.addEventListener("keydown", (event) => {
+  if (event.key !== "Enter") return;
+  event.preventDefault();
+  jumpPetdexPickerPageFromInput();
 });
 
 petPickerRefreshBtn.addEventListener("click", () => {
   ensurePetdexPets({ force: true });
+});
+
+localPetName.addEventListener("input", () => {
+  if (!localPetSlugTouched) localPetSlug.value = slugifyCustomPet(localPetName.value, { fallback: false });
+});
+
+localPetSlug.addEventListener("input", () => {
+  localPetSlugTouched = true;
+  localPetSlug.value = slugifyCustomPet(localPetSlug.value, { fallback: false });
+});
+
+localPetSpritesheet.addEventListener("change", () => {
+  inspectLocalPetSpritesheet().catch((err) => {
+    setLocalPetMeta(err && err.message ? err.message : "无法读取图片。", "error");
+  });
+});
+
+localPetApplyBtn.addEventListener("click", () => {
+  applyLocalPetUpload();
+});
+
+[aiPetFrontView, aiPetLeftView, aiPetRightView].forEach((input) => {
+  input.addEventListener("change", updateAiPetStatus);
 });
 
 petPickerCloseBtn.addEventListener("click", closePetPicker);
@@ -1624,6 +2126,7 @@ setInterval(() => {
   updatePetdexSpriteFrames();
 }, PETDEX_FRAME_MS);
 
+initializeAnalytics();
 applyTheme(storedTheme());
 refreshGitHubStars();
 ensurePetdexPets();

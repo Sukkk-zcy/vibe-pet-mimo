@@ -34,6 +34,11 @@
 
 Vibe Pet is a hardware desktop pet project for AI coding agents. It watches live activity from Codex, Cursor, Windsurf, and other AI coding agents in CLIs and IDEs, turns states such as thinking, tool use, waiting for approval, completed, and error into animated pets, then syncs the same state to Wio Terminal or ESP32-S3 hardware over BLE.
 
+<div style="display: flex; gap: 12px;">
+<img src="images/home.gif" style="width: 50%; height: 250px; border-radius: 8px;"/>
+<img src="images/work.gif" style="width: 50%; height: 250px; border-radius: 8px;"/>
+</div>
+
 ## Highlights
 
 - Multi-agent pet view: every active editor or AI coding agent gets its own pet card instead of sharing one combined state.

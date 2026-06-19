@@ -314,6 +314,124 @@
     return nextLocale;
   }
 
+  let languageMenuListenersReady = false;
+
+  function localeLabel(locale) {
+    return LOCALE_LABELS[safeLocale(locale)] || locale;
+  }
+
+  function languageButtonFor(menu) {
+    const buttonId = menu.getAttribute("aria-labelledby");
+    return buttonId ? document.getElementById(buttonId) : null;
+  }
+
+  function closeLanguageMenus(exceptMenu = null) {
+    for (const menu of document.querySelectorAll("[data-language-menu]")) {
+      if (menu === exceptMenu) continue;
+      menu.hidden = true;
+      const button = languageButtonFor(menu);
+      if (button) button.setAttribute("aria-expanded", "false");
+    }
+  }
+
+  function updateLanguageMenus(root = document) {
+    const locale = storedLocale();
+    for (const label of root.querySelectorAll("[data-language-menu-label]")) {
+      label.textContent = localeLabel(locale);
+    }
+    for (const option of root.querySelectorAll("[data-locale-option]")) {
+      const selected = safeLocale(option.dataset.localeOption) === locale;
+      option.textContent = localeLabel(option.dataset.localeOption);
+      option.setAttribute("aria-selected", String(selected));
+      option.tabIndex = selected ? 0 : -1;
+    }
+  }
+
+  function focusLanguageOption(menu, direction) {
+    const options = Array.from(menu.querySelectorAll("[data-locale-option]"));
+    if (!options.length) return;
+    const activeIndex = options.indexOf(document.activeElement);
+    const selectedIndex = options.findIndex((option) => option.getAttribute("aria-selected") === "true");
+    const currentIndex = activeIndex >= 0 ? activeIndex : Math.max(selectedIndex, 0);
+    const nextIndex = (currentIndex + direction + options.length) % options.length;
+    options[nextIndex].focus();
+  }
+
+  function openLanguageMenu(button, menu) {
+    closeLanguageMenus(menu);
+    updateLanguageMenus();
+    menu.hidden = false;
+    button.setAttribute("aria-expanded", "true");
+    const selected = menu.querySelector('[aria-selected="true"]') || menu.querySelector("[data-locale-option]");
+    if (selected) selected.focus();
+  }
+
+  function setupLanguageMenus(root = document) {
+    for (const button of root.querySelectorAll("[data-language-menu-button]")) {
+      if (button.dataset.languageMenuReady === "true") continue;
+      const menu = document.getElementById(button.getAttribute("aria-controls"));
+      if (!menu) continue;
+      button.dataset.languageMenuReady = "true";
+
+      button.addEventListener("click", (event) => {
+        event.stopPropagation();
+        if (button.getAttribute("aria-expanded") === "true") {
+          closeLanguageMenus();
+        } else {
+          openLanguageMenu(button, menu);
+        }
+      });
+
+      button.addEventListener("keydown", (event) => {
+        if (event.key === "ArrowDown" || event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          openLanguageMenu(button, menu);
+        }
+      });
+
+      menu.addEventListener("keydown", (event) => {
+        if (event.key === "Escape") {
+          event.preventDefault();
+          closeLanguageMenus();
+          button.focus();
+        } else if (event.key === "ArrowDown") {
+          event.preventDefault();
+          focusLanguageOption(menu, 1);
+        } else if (event.key === "ArrowUp") {
+          event.preventDefault();
+          focusLanguageOption(menu, -1);
+        } else if (event.key === "Home") {
+          event.preventDefault();
+          const first = menu.querySelector("[data-locale-option]");
+          if (first) first.focus();
+        } else if (event.key === "End") {
+          event.preventDefault();
+          const options = menu.querySelectorAll("[data-locale-option]");
+          if (options.length) options[options.length - 1].focus();
+        }
+      });
+
+      for (const option of menu.querySelectorAll("[data-locale-option]")) {
+        option.addEventListener("click", (event) => {
+          event.stopPropagation();
+          setLocale(option.dataset.localeOption);
+          closeLanguageMenus();
+          button.focus();
+        });
+      }
+    }
+
+    if (languageMenuListenersReady) return;
+    languageMenuListenersReady = true;
+    document.addEventListener("click", (event) => {
+      if (event.target.closest("[data-language-menu-shell]")) return;
+      closeLanguageMenus();
+    });
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") closeLanguageMenus();
+    });
+  }
+
   function apply(root = document) {
     const locale = storedLocale();
     document.documentElement.lang = HTML_LANG[locale] || "en";
@@ -333,6 +451,8 @@
     for (const select of root.querySelectorAll("[data-language-select]")) {
       select.value = locale;
     }
+    setupLanguageMenus(root);
+    updateLanguageMenus(root);
   }
 
   window.VibePetI18n = {
@@ -343,6 +463,7 @@
     setLocale,
     t,
     apply,
+    updateLanguageMenus,
   };
 
   if (document.readyState === "loading") {

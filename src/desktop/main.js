@@ -4,6 +4,7 @@ const fs = require("fs");
 const https = require("https");
 const os = require("os");
 const path = require("path");
+const crypto = require("crypto");
 const { execFileSync, spawn } = require("child_process");
 const { app, BrowserWindow, ipcMain, Menu, nativeImage, screen, session, shell, Tray } = require("electron");
 const { CodexLogMonitor } = require("../host/agent/codex-log-monitor");
@@ -14,12 +15,23 @@ const { createServer } = require("../host");
 const { getPetdexPets } = require("../host/petdex");
 const { StateHub } = require("../host/state-hub");
 const { DEVICE_NAME_PREFIXES, SERVICE_UUID } = require("../host/protocol");
+const { setupAutoUpdater } = require("./updater");
 
 const DEFAULT_PORT = 17384;
 const PROJECT_REPO_URL = "https://github.com/wangzongming/vibe-pet";
 const PROJECT_REPO_API_URL = "https://api.github.com/repos/wangzongming/vibe-pet";
 const PETDEX_REPO_URL = "https://github.com/crafter-station/petdex";
 const RUNTIME_PATH = path.join(os.homedir(), ".code-pet", "runtime.json");
+const ANALYTICS_STATE_PATH = path.join(os.homedir(), ".code-pet", "analytics.json");
+const ANALYTICS_PROVIDER = "tencent-rum";
+const DEFAULT_TENCENT_RUM_ID = "3oLdoCL4jZnGkgvoYp";
+const DEFAULT_TENCENT_RUM_HOST_URL = "https://aegis.qq.com";
+const TENCENT_RUM_HOST_CANDIDATES = [
+  { url: "https://rumt-zh.com", region: "china" },
+  { url: "https://rumt-sg.com", region: "singapore" },
+  { url: "https://rumt-us.com", region: "silicon-valley" },
+  { url: "https://aegis.qq.com", region: "default" },
+];
 const INDEX_HTML = path.join(__dirname, "index.html");
 const PET_OVERLAY_HTML = path.join(__dirname, "pet-overlay.html");
 const PRELOAD_JS = path.join(__dirname, "preload.js");
@@ -29,96 +41,108 @@ const APP_ICON_PNG = `${APP_ICON_BASE}.png`;
 const APP_ICON_ICNS = `${APP_ICON_BASE}.icns`;
 const APP_ICON_ICO = `${APP_ICON_BASE}.ico`;
 const TRAY_ICON_PNG = path.join(DESKTOP_ASSET_DIR, "tray-icon.png");
-const LOGO_PNG = path.join(__dirname, "..", "host", "public", "logo.png");
+const LOGO_PNG = path.join(DESKTOP_ASSET_DIR, "logo.png");
 const HOST_DIR = path.join(__dirname, "..", "host");
 const PROJECT_ROOT = path.resolve(__dirname, "..", "..");
 const PET_OVERLAY_WIDTH = 172;
 const PET_OVERLAY_HEIGHT = 202;
+const WINDOW_TITLEBAR_HEIGHT = 42;
+const WINDOW_THEME_COLORS = {
+  day: {
+    background: "#eef4f7",
+    symbol: "#18202a",
+  },
+  night: {
+    background: "#101316",
+    symbol: "#edf1f3",
+  },
+};
 const FIRMWARE_ROOT = path.join(PROJECT_ROOT, "src", "firmware");
+const firmwareProject = (name) => path.join(FIRMWARE_ROOT, name);
 const FIRMWARE_TARGETS = {
   wio_terminal: {
     id: "wio_terminal",
     name: "Wio Terminal",
-    projectDir: path.join(FIRMWARE_ROOT, "wio-terminal-code-pet"),
+    projectDir: firmwareProject("wio-terminal-code-pet"),
     env: "wio_terminal",
   },
   esp32s3: {
     id: "esp32s3",
-    name: "ESP32-S3",
-    projectDir: path.join(FIRMWARE_ROOT, "esp-ai-mini-ext-status"),
+    name: "ESP-AI Mini Ext",
+    projectDir: firmwareProject("esp-ai-mini-ext-status"),
     env: "esp_ai_mini_ext_status",
   },
   esp_ai_common_3_tft: {
     id: "esp_ai_common_3_tft",
     name: "ESP-AI Common 3.0.0 TFT",
-    projectDir: path.join(FIRMWARE_ROOT, "esp-display-code-pet"),
-    env: "esp_ai_common_3_tft",
+    projectDir: firmwareProject("esp-ai-common-3-tft-code-pet"),
+    env: "code_pet",
   },
   esp_ai_diy_esp32s3_oled: {
     id: "esp_ai_diy_esp32s3_oled",
     name: "ESP-AI DIY ESP32S3 OLED",
-    projectDir: path.join(FIRMWARE_ROOT, "esp-display-code-pet"),
-    env: "esp_ai_diy_esp32s3_oled",
+    projectDir: firmwareProject("esp-ai-diy-esp32s3-oled-code-pet"),
+    env: "code_pet",
   },
   m5stack_core2: {
     id: "m5stack_core2",
     name: "M5Stack Core2",
-    projectDir: path.join(FIRMWARE_ROOT, "esp-display-code-pet"),
-    env: "m5stack_core2",
+    projectDir: firmwareProject("m5stack-core2-code-pet"),
+    env: "code_pet",
   },
   m5stack_cores3: {
     id: "m5stack_cores3",
     name: "M5Stack CoreS3",
-    projectDir: path.join(FIRMWARE_ROOT, "esp-display-code-pet"),
-    env: "m5stack_cores3",
+    projectDir: firmwareProject("m5stack-cores3-code-pet"),
+    env: "code_pet",
   },
   m5stickc_plus2: {
     id: "m5stickc_plus2",
     name: "M5StickC Plus2",
-    projectDir: path.join(FIRMWARE_ROOT, "esp-display-code-pet"),
-    env: "m5stickc_plus2",
+    projectDir: firmwareProject("m5stickc-plus2-code-pet"),
+    env: "code_pet",
   },
   m5stack_cardputer: {
     id: "m5stack_cardputer",
     name: "M5Stack Cardputer",
-    projectDir: path.join(FIRMWARE_ROOT, "esp-display-code-pet"),
-    env: "m5stack_cardputer",
+    projectDir: firmwareProject("m5stack-cardputer-code-pet"),
+    env: "code_pet",
   },
   m5stack_atoms3: {
     id: "m5stack_atoms3",
     name: "M5Stack AtomS3",
-    projectDir: path.join(FIRMWARE_ROOT, "esp-display-code-pet"),
-    env: "m5stack_atoms3",
+    projectDir: firmwareProject("m5stack-atoms3-code-pet"),
+    env: "code_pet",
   },
   lilygo_t_display: {
     id: "lilygo_t_display",
     name: "LILYGO T-Display ESP32",
-    projectDir: path.join(FIRMWARE_ROOT, "esp-display-code-pet"),
-    env: "lilygo_t_display",
+    projectDir: firmwareProject("lilygo-t-display-code-pet"),
+    env: "code_pet",
   },
   lilygo_t_display_s3: {
     id: "lilygo_t_display_s3",
     name: "LILYGO T-Display S3",
-    projectDir: path.join(FIRMWARE_ROOT, "esp-display-code-pet"),
-    env: "lilygo_t_display_s3",
+    projectDir: firmwareProject("lilygo-t-display-s3-code-pet"),
+    env: "code_pet",
   },
   heltec_wifi_kit_32: {
     id: "heltec_wifi_kit_32",
     name: "Heltec WiFi Kit 32",
-    projectDir: path.join(FIRMWARE_ROOT, "esp-display-code-pet"),
-    env: "heltec_wifi_kit_32",
+    projectDir: firmwareProject("heltec-wifi-kit-32-code-pet"),
+    env: "code_pet",
   },
   heltec_wifi_kit_8: {
     id: "heltec_wifi_kit_8",
     name: "Heltec WiFi Kit 8",
-    projectDir: path.join(FIRMWARE_ROOT, "esp-display-code-pet"),
-    env: "heltec_wifi_kit_8",
+    projectDir: firmwareProject("heltec-wifi-kit-8-code-pet"),
+    env: "code_pet",
   },
   wemos_d1_mini_oled: {
     id: "wemos_d1_mini_oled",
     name: "WEMOS D1 mini + OLED Shield",
-    projectDir: path.join(FIRMWARE_ROOT, "esp-display-code-pet"),
-    env: "wemos_d1_mini_oled",
+    projectDir: firmwareProject("wemos-d1-mini-oled-code-pet"),
+    env: "code_pet",
   },
 };
 
@@ -154,6 +178,273 @@ let githubStarsCache = {
   value: null,
   updatedAt: 0,
 };
+let analyticsSessionId = createAnalyticsSessionId();
+let pendingAnalyticsEvents = [];
+let selectedTencentRumHost = {
+  url: "",
+  region: "",
+  source: "unresolved",
+};
+
+function createAnalyticsSessionId() {
+  const seconds = Math.floor(Date.now() / 1000).toString();
+  const suffix = Math.floor(Math.random() * 1e8).toString().padStart(8, "0");
+  return `${seconds}${suffix}`;
+}
+
+function analyticsState() {
+  try {
+    const parsed = JSON.parse(fs.readFileSync(ANALYTICS_STATE_PATH, "utf8"));
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function writeAnalyticsState(state) {
+  try {
+    fs.mkdirSync(path.dirname(ANALYTICS_STATE_PATH), { recursive: true });
+    fs.writeFileSync(ANALYTICS_STATE_PATH, JSON.stringify(state, null, 2), "utf8");
+  } catch {}
+}
+
+function createAnalyticsInstallId() {
+  if (typeof crypto.randomUUID === "function") return crypto.randomUUID();
+  return crypto.randomBytes(16).toString("hex");
+}
+
+function analyticsStateWithInstallId() {
+  const state = analyticsState();
+  if (typeof state.installId === "string" && state.installId) return state;
+  const next = { ...state, installId: createAnalyticsInstallId() };
+  writeAnalyticsState(next);
+  return next;
+}
+
+function configuredTencentRumId(state = analyticsState()) {
+  const fromArgs = String(startupOptions.tencentRumId || "").trim();
+  if (fromArgs) return fromArgs;
+  const fromEnv = String(process.env.CODE_PET_TENCENT_RUM_ID || process.env.TENCENT_RUM_ID || "").trim();
+  if (fromEnv) return fromEnv;
+  return String(state.tencentRumId || "").trim() || DEFAULT_TENCENT_RUM_ID;
+}
+
+function manuallyConfiguredTencentRumHostUrl(state = analyticsState()) {
+  const fromArgs = String(startupOptions.tencentRumHostUrl || "").trim();
+  if (fromArgs && fromArgs !== "auto") return fromArgs;
+  const fromEnv = String(process.env.CODE_PET_TENCENT_RUM_HOST_URL || process.env.TENCENT_RUM_HOST_URL || "").trim();
+  if (fromEnv && fromEnv !== "auto") return fromEnv;
+  const fromState = String(state.tencentRumHostUrl || "").trim();
+  return fromState && fromState !== "auto" ? fromState : "";
+}
+
+function normalizeTencentRumHostUrl(url) {
+  const value = String(url || "").trim().replace(/\/+$/, "");
+  return /^https:\/\/[a-z0-9.-]+$/i.test(value) ? value : "";
+}
+
+function configuredTencentRumHostUrl(state = analyticsState()) {
+  const manual = normalizeTencentRumHostUrl(manuallyConfiguredTencentRumHostUrl(state));
+  if (manual) return manual;
+  return selectedTencentRumHost.url || normalizeTencentRumHostUrl(state.autoTencentRumHostUrl) || DEFAULT_TENCENT_RUM_HOST_URL;
+}
+
+function configuredTencentRumHostSource(state = analyticsState()) {
+  if (normalizeTencentRumHostUrl(manuallyConfiguredTencentRumHostUrl(state))) return "manual";
+  return selectedTencentRumHost.source || (state.autoTencentRumHostUrl ? "cached-auto" : "default");
+}
+
+function probeTencentRumHost(candidate, timeout = 1800) {
+  const startedAt = Date.now();
+  const hostUrl = normalizeTencentRumHostUrl(candidate && candidate.url);
+  if (!hostUrl) return Promise.resolve({ ...candidate, ok: false, latencyMs: Infinity, error: "invalid_url" });
+
+  return new Promise((resolve) => {
+    let settled = false;
+    const done = (result) => {
+      if (settled) return;
+      settled = true;
+      resolve({
+        ...candidate,
+        url: hostUrl,
+        latencyMs: Date.now() - startedAt,
+        ...result,
+      });
+    };
+
+    const req = https.request(`${hostUrl}/collect/events`, {
+      method: "HEAD",
+      timeout,
+      headers: {
+        "user-agent": `VibePet/${app.getVersion()} analytics-probe`,
+      },
+    }, (res) => {
+      res.resume();
+      done({ ok: true, statusCode: res.statusCode || 0 });
+    });
+
+    req.on("error", (err) => {
+      done({ ok: false, error: err && err.code ? err.code : err.message || "request_error" });
+    });
+    req.on("timeout", () => {
+      done({ ok: false, error: "timeout" });
+      req.destroy();
+    });
+    req.end();
+  });
+}
+
+async function selectTencentRumHostUrl() {
+  const state = analyticsState();
+  const manual = normalizeTencentRumHostUrl(manuallyConfiguredTencentRumHostUrl(state));
+  if (manual) {
+    selectedTencentRumHost = { url: manual, region: "manual", source: "manual" };
+    return selectedTencentRumHost;
+  }
+
+  const results = await Promise.all(TENCENT_RUM_HOST_CANDIDATES.map((candidate) => probeTencentRumHost(candidate)));
+  const best = results
+    .filter((result) => result.ok)
+    .sort((a, b) => a.latencyMs - b.latencyMs)[0];
+
+  if (best) {
+    selectedTencentRumHost = { url: best.url, region: best.region || "", source: "auto", latencyMs: best.latencyMs };
+    writeAnalyticsState({
+      ...state,
+      autoTencentRumHostUrl: best.url,
+      autoTencentRumHostRegion: best.region || "",
+      autoTencentRumHostLatencyMs: best.latencyMs,
+      autoTencentRumHostSelectedAt: new Date().toISOString(),
+    });
+  } else {
+    selectedTencentRumHost = {
+      url: normalizeTencentRumHostUrl(state.autoTencentRumHostUrl) || DEFAULT_TENCENT_RUM_HOST_URL,
+      region: state.autoTencentRumHostRegion || "fallback",
+      source: state.autoTencentRumHostUrl ? "cached-auto" : "default",
+    };
+  }
+
+  if (startupOptions.verbose || startupOptions.analyticsDebug || process.env.CODE_PET_ANALYTICS_DEBUG === "1") {
+    console.log("[analytics] rum host selection", JSON.stringify({
+      selected: selectedTencentRumHost,
+      probes: results.map((result) => ({
+        url: result.url,
+        region: result.region,
+        ok: result.ok,
+        statusCode: result.statusCode,
+        latencyMs: result.latencyMs,
+        error: result.error,
+      })),
+    }));
+  }
+
+  return selectedTencentRumHost;
+}
+
+function sanitizeAnalyticsProps(props = {}) {
+  const out = {};
+  if (!props || typeof props !== "object" || Array.isArray(props)) return out;
+  for (const [key, value] of Object.entries(props)) {
+    if (!/^[a-zA-Z0-9_.-]{1,64}$/.test(key)) continue;
+    if (typeof value === "string") out[key] = value.slice(0, 160);
+    else if (typeof value === "number" && Number.isFinite(value)) out[key] = value;
+    else if (typeof value === "boolean") out[key] = value;
+  }
+  return out;
+}
+
+function trackAnalyticsEvent(eventName, props = {}) {
+  if (process.env.CODE_PET_DISABLE_ANALYTICS === "1") return;
+  if (!eventName || typeof eventName !== "string") return;
+  pendingAnalyticsEvents.push({
+    timestamp: new Date().toISOString(),
+    sessionId: analyticsSessionId,
+    eventName: eventName.slice(0, 64),
+    props: {
+      platform: process.platform,
+      arch: process.arch,
+      locale: app.getLocale(),
+      isDebug: !!startupOptions.watch,
+      appVersion: app.getVersion(),
+      ...sanitizeAnalyticsProps(props),
+    },
+  });
+  if (pendingAnalyticsEvents.length > 100) pendingAnalyticsEvents = pendingAnalyticsEvents.slice(-100);
+}
+
+function trackAppLaunch() {
+  const state = analyticsStateWithInstallId();
+  if (!state.firstLaunchTracked) {
+    trackAnalyticsEvent("app_installed");
+    writeAnalyticsState({ ...state, firstLaunchTracked: true, firstLaunchAt: new Date().toISOString() });
+  }
+  trackAnalyticsEvent("app_started");
+}
+
+function consumePendingAnalyticsEvents() {
+  const events = pendingAnalyticsEvents;
+  pendingAnalyticsEvents = [];
+  return events;
+}
+
+function analyticsConfig() {
+  if (process.env.CODE_PET_DISABLE_ANALYTICS === "1") {
+    return { enabled: false, provider: ANALYTICS_PROVIDER, reason: "disabled" };
+  }
+  const state = analyticsStateWithInstallId();
+  const id = configuredTencentRumId(state);
+  if (!id) {
+    return { enabled: false, provider: ANALYTICS_PROVIDER, reason: "missing_tencent_rum_id" };
+  }
+  return {
+    enabled: true,
+    provider: ANALYTICS_PROVIDER,
+    id,
+    hostUrl: configuredTencentRumHostUrl(state),
+    hostSource: configuredTencentRumHostSource(state),
+    hostRegion: selectedTencentRumHost.region || state.autoTencentRumHostRegion || "",
+    debug: !!startupOptions.analyticsDebug || process.env.CODE_PET_ANALYTICS_DEBUG === "1",
+    installId: state.installId,
+    sessionId: analyticsSessionId,
+    commonProps: {
+      platform: process.platform,
+      arch: process.arch,
+      locale: app.getLocale(),
+      isDebug: !!startupOptions.watch,
+      appVersion: app.getVersion(),
+      rum_host: configuredTencentRumHostUrl(state),
+      rum_host_source: configuredTencentRumHostSource(state),
+      rum_host_region: selectedTencentRumHost.region || state.autoTencentRumHostRegion || "",
+    },
+    initialEvents: consumePendingAnalyticsEvents(),
+  };
+}
+
+function windowChromeOptions(theme = "day") {
+  const colors = WINDOW_THEME_COLORS[theme] || WINDOW_THEME_COLORS.day;
+  return {
+    color: colors.background,
+    symbolColor: colors.symbol,
+    height: WINDOW_TITLEBAR_HEIGHT,
+  };
+}
+
+function mainWindowChromeOptions() {
+  if (process.platform !== "win32") return {};
+  return {
+    titleBarStyle: "hidden",
+    titleBarOverlay: windowChromeOptions("day"),
+  };
+}
+
+function applyMainWindowTheme(win, theme = "day") {
+  if (!win || win.isDestroyed()) return;
+  const colors = WINDOW_THEME_COLORS[theme] || WINDOW_THEME_COLORS.day;
+  win.setBackgroundColor(colors.background);
+  if (process.platform === "win32" && typeof win.setTitleBarOverlay === "function") {
+    win.setTitleBarOverlay(windowChromeOptions(theme));
+  }
+}
 
 function isAllowedExternalUrl(url) {
   return [PROJECT_REPO_URL, PETDEX_REPO_URL].some((allowedUrl) =>
@@ -289,6 +580,7 @@ function parseArgs(argv) {
     codexLog: true,
     cursorTranscript: true,
     watch: false,
+    autoUpdate: true,
   };
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
@@ -298,6 +590,12 @@ function parseArgs(argv) {
     else if (arg === "--no-codex-log") out.codexLog = false;
     else if (arg === "--no-cursor-transcript") out.cursorTranscript = false;
     else if (arg === "--watch") out.watch = true;
+    else if (arg === "--no-auto-update") out.autoUpdate = false;
+    else if (arg === "--auto-update-debug") out.autoUpdateDebug = true;
+    else if (arg === "--analytics-debug") out.analyticsDebug = true;
+    else if (arg === "--tencent-rum-id") out.tencentRumId = argv[++i] || "";
+    else if (arg === "--tencent-rum-host-url") out.tencentRumHostUrl = argv[++i] || "";
+    else if (arg === "--analytics-api-url") out.tencentRumHostUrl = argv[++i] || "";
   }
   return out;
 }
@@ -365,18 +663,25 @@ function isMainWindow(webContents) {
 
 function setupDevicePermissions() {
   const allowedOrigin = `file://${INDEX_HTML}`;
+  const defaultSession = session.defaultSession;
 
-  session.defaultSession.setPermissionCheckHandler((webContents, permission) => {
-    return permission === "bluetooth" && isMainWindow(webContents);
-  });
+  if (typeof defaultSession.setPermissionCheckHandler === "function") {
+    defaultSession.setPermissionCheckHandler((webContents, permission) => {
+      return permission === "bluetooth" && isMainWindow(webContents);
+    });
+  }
 
-  session.defaultSession.setPermissionRequestHandler((webContents, permission, callback) => {
-    callback(permission === "bluetooth" && isMainWindow(webContents));
-  });
+  if (typeof defaultSession.setPermissionRequestHandler === "function") {
+    defaultSession.setPermissionRequestHandler((webContents, permission, callback) => {
+      callback(permission === "bluetooth" && isMainWindow(webContents));
+    });
+  }
 
-  session.defaultSession.setDevicePermissionHandler((details) => {
-    return details.deviceType === "bluetooth" && (details.origin === "file://" || details.origin === allowedOrigin);
-  });
+  if (typeof defaultSession.setDevicePermissionHandler === "function") {
+    defaultSession.setDevicePermissionHandler((details) => {
+      return details.deviceType === "bluetooth" && (details.origin === "file://" || details.origin === allowedOrigin);
+    });
+  }
 }
 
 function finishBluetoothSelection(deviceId = "") {
@@ -816,7 +1121,7 @@ function reloadMode(filePath) {
   if (normalized === path.join(__dirname, "pet-overlay.js")) return "renderer";
   if (normalized === path.join(HOST_DIR, "public", "styles.css")) return "renderer";
   if (normalized === path.join(HOST_DIR, "public", "i18n.js")) return "renderer";
-  if (normalized === path.join(HOST_DIR, "public", "logo.png")) return "renderer";
+  if (normalized === LOGO_PNG) return "renderer";
   return "restart";
 }
 
@@ -881,7 +1186,9 @@ function createMainWindow() {
     minHeight: 620,
     title: "Vibe Pet",
     icon: appWindowIconPath(),
-    backgroundColor: "#eef4f7",
+    backgroundColor: WINDOW_THEME_COLORS.day.background,
+    autoHideMenuBar: true,
+    ...mainWindowChromeOptions(),
     webPreferences: {
       preload: PRELOAD_JS,
       contextIsolation: true,
@@ -891,6 +1198,8 @@ function createMainWindow() {
   });
 
   mainWindow = win;
+  if (process.platform !== "darwin") win.setMenu(null);
+  win.setMenuBarVisibility(false);
   setupBluetoothPicker(win);
   win.webContents.setWindowOpenHandler(({ url }) => {
     if (isAllowedExternalUrl(url)) {
@@ -905,6 +1214,11 @@ function createMainWindow() {
       shell.openExternal(url);
     }
   });
+  if (startupOptions.verbose || startupOptions.analyticsDebug || process.env.CODE_PET_ANALYTICS_DEBUG === "1") {
+    win.webContents.on("console-message", (_event, level, message, line, sourceId) => {
+      console.log(`[renderer:${level}] ${message} (${sourceId}:${line})`);
+    });
+  }
 
   win.webContents.once("did-finish-load", () => {
     broadcastState({ type: "snapshot", at: Date.now(), ...hub.getSnapshot() });
@@ -928,6 +1242,10 @@ function setupIpc() {
   ipcMain.handle("code-pet:list-serial-ports", () => listSerialPorts());
   ipcMain.handle("code-pet:flash-firmware", (_event, options = {}) => startFirmwareFlash(options));
   ipcMain.handle("code-pet:cancel-firmware-flash", () => cancelFirmwareFlash());
+  ipcMain.handle("code-pet:get-analytics-config", (event) => {
+    if (!isMainWindow(event.sender)) return { enabled: false, provider: ANALYTICS_PROVIDER, reason: "not_main_window" };
+    return analyticsConfig();
+  });
   ipcMain.handle("code-pet:test-state", (_event, state) => {
     hub.upsert({
       agentId: "test",
@@ -941,6 +1259,15 @@ function setupIpc() {
   });
   ipcMain.handle("code-pet:choose-bluetooth-device", (_event, deviceId) => {
     return finishBluetoothSelection(deviceId || "");
+  });
+  ipcMain.on("code-pet:analytics-event", (event, payload = {}) => {
+    if (!isMainWindow(event.sender)) return;
+    if (!payload || typeof payload !== "object") return;
+    trackAnalyticsEvent(payload.eventName, payload.props);
+  });
+  ipcMain.on("code-pet:set-window-theme", (event, theme) => {
+    if (!isMainWindow(event.sender)) return;
+    applyMainWindowTheme(BrowserWindow.fromWebContents(event.sender), theme);
   });
   ipcMain.on("code-pet:sync-desktop-pets", (event, pets = []) => {
     if (!isMainWindow(event.sender)) return;
@@ -1013,12 +1340,19 @@ if (!gotLock) {
 
   app.whenReady().then(async () => {
     const options = startupOptions;
+    if (process.platform !== "darwin") Menu.setApplicationMenu(null);
     setupAppIcon();
     setupDevicePermissions();
+    await selectTencentRumHostUrl();
     setupIpc();
+    trackAppLaunch();
     await startBackend(options);
     createTray();
     createMainWindow();
+    setupAutoUpdater({
+      disabled: !options.autoUpdate,
+      debug: options.verbose || options.autoUpdateDebug,
+    });
     setupDevWatch();
   }).catch((err) => {
     console.error(err);
