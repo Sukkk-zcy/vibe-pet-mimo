@@ -4,8 +4,6 @@
 
 <h1 align="center">Vibe Pet</h1>
 
----
-
 <p align="center">
   <strong>给 AI 编程助手准备的桌宠。</strong><br>
   <strong>几千款形象任你选择或者一键制作自己的形象</strong><br>
@@ -34,10 +32,10 @@
 
 Vibe Pet 是一个给 AI 编程助手准备的桌宠项目。它会读取 Codex、Cursor、Windsurf 以及其他 CLI / IDE 中 AI 编程助手的实时状态，变成桌面上的小宠物动画，并通过 BLE 同步到 Wio Terminal 或 ESP32-S3 等设备。
 
-<div style="display: flex; gap: 12px;">
-<img src="images/home.gif" style="width: 50%; height: 250px; border-radius: 8px;"/>
-<img src="images/work.gif" style="width: 50%; height: 250px; border-radius: 8px;"/>
-</div>
+<p align="center">
+  <img src="images/home.gif" width="420" alt="Vibe Pet 角色选择器">
+  <img src="images/work.gif" width="420" alt="Vibe Pet 桌面宠物">
+</p>
 
 ## 核心功能
 

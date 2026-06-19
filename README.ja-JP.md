@@ -4,8 +4,6 @@
 
 <h1 align="center">Vibe Pet</h1>
 
----
-
 <p align="center">
   <strong>AI コーディングエージェントのためのハードウェアデスクトップペット。</strong><br>
   <strong>数千種類のキャラクターから選ぶことも、ワンクリックで自分のキャラクターを作ることもできます。</strong><br>
@@ -34,11 +32,10 @@
 
 Vibe Pet は AI コーディングエージェントのためのハードウェアデスクトップペットです。Codex、Cursor、Windsurf などの CLI / IDE AI エージェントの状態を読み取り、「考え中」「ツール実行中」「承認待ち」「完了」「エラー」といった動きを小さなペットのアニメーションに変換し、BLE 経由で Wio Terminal や ESP32-S3 デバイスへ同期します。
 
-
-<div style="display: flex; gap: 12px;">
-<img src="images/home.gif" style="width: 50%; height: 250px; border-radius: 8px;"/>
-<img src="images/work.gif" style="width: 50%; height: 250px; border-radius: 8px;"/>
-</div>
+<p align="center">
+  <img src="images/home.gif" width="420" alt="Vibe Pet character picker">
+  <img src="images/work.gif" width="420" alt="Vibe Pet desktop companion">
+</p>
 
 ## 主な機能
 
