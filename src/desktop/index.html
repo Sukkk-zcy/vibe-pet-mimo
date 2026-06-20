@@ -141,14 +141,6 @@
             <strong id="bridgePort">-</strong>
           </div>
 
-          <div class="device-picker" id="devicePicker" hidden>
-            <div class="device-picker-head">
-              <strong data-i18n="device.choose">Choose device</strong>
-              <button id="cancelDeviceBtn" type="button" data-i18n="device.cancel">Cancel</button>
-            </div>
-            <div class="device-list" id="deviceList"></div>
-          </div>
-
           <label class="select-label" for="testState" data-i18n="label.testState">Test state</label>
           <div class="test-row">
             <select id="testState">
@@ -167,6 +159,41 @@
           </div>
 
           <pre id="packetPreview">{}</pre>
+      </section>
+    </div>
+
+    <div class="device-picker-modal" id="devicePickerModal" hidden>
+      <section class="device-picker-dialog" role="dialog" aria-modal="true" aria-labelledby="devicePickerTitle">
+        <div class="device-picker" id="devicePicker" hidden>
+          <div class="device-picker-head">
+            <strong id="devicePickerTitle" data-i18n="device.choose">Choose device</strong>
+            <button id="cancelDeviceBtn" type="button" data-i18n="device.cancel">Cancel</button>
+          </div>
+          <div class="device-list" id="deviceList"></div>
+        </div>
+      </section>
+    </div>
+
+    <div class="confirm-modal" id="disconnectConfirmModal" hidden>
+      <section class="confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="disconnectConfirmTitle" aria-describedby="disconnectConfirmMessage">
+        <header class="confirm-head">
+          <span class="confirm-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24">
+              <path d="M7 7h10a4 4 0 0 1 4 4v2a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4v-2a4 4 0 0 1 4-4Z"></path>
+              <path d="M9 17v2M15 17v2M9 5V3M15 5V3M8.5 12h.01M15.5 12h.01"></path>
+              <path d="m4 20 16-16"></path>
+            </svg>
+          </span>
+          <div class="confirm-copy">
+            <strong id="disconnectConfirmTitle" data-i18n="device.disconnectTitle">Disconnect device?</strong>
+            <p id="disconnectConfirmMessage">Vibe Pet will stop sending live status to this device. You can reconnect anytime.</p>
+          </div>
+        </header>
+        <div class="confirm-device-name" id="disconnectConfirmDevice"></div>
+        <div class="confirm-actions">
+          <button id="disconnectConfirmCancelBtn" type="button" data-i18n="device.keepConnected">Keep connected</button>
+          <button class="confirm-danger" id="disconnectConfirmConfirmBtn" type="button" data-i18n="device.disconnectAction">Disconnect</button>
+        </div>
       </section>
     </div>
 

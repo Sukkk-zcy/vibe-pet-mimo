@@ -222,6 +222,7 @@ class StateHub extends EventEmitter {
         activeCount: active.length,
         title: chosen.title,
         cwdBasename: chosen.cwdBasename,
+        output: chosen.output,
       }),
     };
   }

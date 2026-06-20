@@ -1643,6 +1643,27 @@ html[data-theme="night"] .pet-avatar-button:focus-visible {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
+.device-picker-modal {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal);
+  display: grid;
+  place-items: center;
+  padding: 22px;
+  background: rgba(9, 13, 18, 0.42);
+}
+
+.device-picker-modal[hidden] {
+  display: none;
+}
+
+.device-picker-dialog {
+  width: min(420px, 100%);
+  max-height: min(520px, calc(100vh - 44px));
+  display: grid;
+  overflow: auto;
+}
+
 .device-picker {
   display: grid;
   gap: 10px;
@@ -1686,6 +1707,127 @@ html[data-theme="night"] .pet-avatar-button:focus-visible {
   color: var(--muted);
   border: 1px dashed var(--line);
   border-radius: 8px;
+}
+
+.confirm-modal {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal);
+  display: grid;
+  place-items: center;
+  padding: 22px;
+  background: rgba(9, 13, 18, 0.48);
+}
+
+.confirm-modal[hidden] {
+  display: none;
+}
+
+.confirm-dialog {
+  width: min(420px, 100%);
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+  border: 1px solid color-mix(in srgb, var(--line) 86%, transparent);
+  border-radius: 8px;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--surface) 94%, transparent), color-mix(in srgb, var(--stage) 76%, var(--surface))),
+    var(--surface);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.34);
+}
+
+.confirm-head {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+}
+
+.confirm-icon {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--red) 32%, var(--line));
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--red) 10%, transparent);
+  color: var(--red);
+}
+
+.confirm-icon svg {
+  width: 23px;
+  height: 23px;
+  display: block;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.confirm-copy {
+  min-width: 0;
+  display: grid;
+  gap: 5px;
+}
+
+.confirm-copy strong {
+  color: var(--ink);
+  font-size: 16px;
+  font-weight: 760;
+  line-height: 1.25;
+}
+
+.confirm-copy p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.confirm-device-name {
+  min-height: 36px;
+  display: grid;
+  align-content: center;
+  padding: 8px 10px;
+  border: 1px solid var(--panel-line);
+  border-radius: 8px;
+  background: var(--stage);
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 720;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.confirm-actions button {
+  min-height: 36px;
+  padding: 0 14px;
+  font-size: 13px;
+}
+
+.confirm-actions .confirm-danger {
+  border-color: color-mix(in srgb, var(--red) 54%, var(--line));
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--red) 90%, #ffffff), var(--red));
+  color: #ffffff;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.22) inset,
+    0 9px 18px color-mix(in srgb, var(--red) 24%, transparent);
+}
+
+.confirm-actions .confirm-danger:hover:not(:disabled),
+.confirm-actions .confirm-danger:focus-visible {
+  border-color: color-mix(in srgb, var(--red) 72%, var(--line));
+  filter: brightness(1.03);
 }
 
 .firmware-modal {

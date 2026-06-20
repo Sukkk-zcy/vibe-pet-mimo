@@ -2,22 +2,9 @@
 
 const SERVICE_UUID = "7b71f91a-3c7b-4c3b-9f2d-2dbdccd5c001";
 const STATE_CHAR_UUID = "7b71f91a-3c7b-4c3b-9f2d-2dbdccd5c002";
-const DEVICE_NAME_PREFIXES = [
-  "VibePet-Wio",
-  "VibePet-ESP-AI",
-  "VibePet-ESP-Display",
-  "VibePet-M5",
-  "VibePet-LILYGO",
-  "VibePet-Heltec",
-  "VibePet-WEMOS",
-  "CodePet-Wio",
-  "CodePet-ESP-AI",
-  "CodePet-ESP-Display",
-  "CodePet-M5",
-  "CodePet-LILYGO",
-  "CodePet-Heltec",
-  "CodePet-WEMOS",
-];
+const BLUETOOTH_SCAN_NAME_PREFIX = "VibePet";
+const BLUETOOTH_DEVICE_STORAGE_KEY = "code-pet-bluetooth-device";
+const DEVICE_OUTPUT_MAX_CHARS = 120;
 
 const stateName = document.getElementById("stateName");
 const agentName = document.getElementById("agentName");
@@ -38,6 +25,8 @@ const statusActions = document.querySelector(".status-actions");
 
 let device = null;
 let stateCharacteristic = null;
+let autoConnectInFlight = false;
+let autoConnectTimer = null;
 let connectionMessage = { message: "connection.disconnected", values: {}, connected: false };
 let latestAggregate = {
   state: "idle",
@@ -84,8 +73,7 @@ function closeStatusPanel() {
 }
 
 function compactPacket(aggregate) {
-  if (aggregate && aggregate.devicePacket) return aggregate.devicePacket;
-  return {
+  const packet = aggregate && aggregate.devicePacket ? { ...aggregate.devicePacket } : {
     v: 1,
     s: aggregate.state || "idle",
     a: aggregate.agent || "agent",
@@ -93,6 +81,13 @@ function compactPacket(aggregate) {
     n: aggregate.activeCount || 0,
     ts: Date.now(),
   };
+  packet.th = storedTheme();
+  packet.sl = stateLabel(packet.s);
+  packet.l = window.VibePetI18n && typeof window.VibePetI18n.getLocale === "function" ? window.VibePetI18n.getLocale() : "en";
+  const output = String((aggregate && aggregate.output) || "").replace(/\s+/g, " ").trim();
+  if (output) packet.o = output.length > DEVICE_OUTPUT_MAX_CHARS ? output.slice(0, DEVICE_OUTPUT_MAX_CHARS - 3) + "..." : output;
+  else delete packet.o;
+  return packet;
 }
 
 function render(aggregate) {
@@ -125,6 +120,111 @@ function applyTheme(theme) {
   try {
     localStorage.setItem("code-pet-theme", nextTheme);
   } catch {}
+  render(latestAggregate);
+  if (stateCharacteristic) {
+    sendCurrent().catch((err) => setConnection("connection.sendFailed", false, { message: err.message }));
+  }
+}
+
+function readRememberedBluetoothDevice() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(BLUETOOTH_DEVICE_STORAGE_KEY) || "{}");
+    if (!parsed || typeof parsed !== "object") return null;
+    const id = typeof parsed.id === "string" ? parsed.id : "";
+    const name = typeof parsed.name === "string" ? parsed.name : "";
+    return id || name ? { id, name } : null;
+  } catch {
+    return null;
+  }
+}
+
+function rememberBluetoothDevice(nextDevice) {
+  if (!nextDevice) return;
+  const id = typeof nextDevice.id === "string" ? nextDevice.id : "";
+  const name = typeof nextDevice.name === "string" ? nextDevice.name : "";
+  if (!id && !name) return;
+  if (name && !name.startsWith(BLUETOOTH_SCAN_NAME_PREFIX)) return;
+  try {
+    localStorage.setItem(BLUETOOTH_DEVICE_STORAGE_KEY, JSON.stringify({ id, name, updatedAt: Date.now() }));
+  } catch {}
+}
+
+function isVibePetBluetoothDevice(nextDevice) {
+  return !!(nextDevice && typeof nextDevice.name === "string" && nextDevice.name.startsWith(BLUETOOTH_SCAN_NAME_PREFIX));
+}
+
+function findRememberedBluetoothDevice(devices = []) {
+  const remembered = readRememberedBluetoothDevice();
+  if (remembered && remembered.id) {
+    const exact = devices.find((item) => item && item.id === remembered.id);
+    if (exact) return exact;
+  }
+  if (remembered && remembered.name) {
+    const exactName = devices.find((item) => item && item.name === remembered.name);
+    if (exactName) return exactName;
+  }
+  if (remembered) return null;
+  const vibePetDevices = devices.filter(isVibePetBluetoothDevice);
+  return vibePetDevices.length === 1 ? vibePetDevices[0] : null;
+}
+
+function handleBluetoothDisconnected() {
+  stateCharacteristic = null;
+  setConnection("connection.deviceDisconnected", false);
+  scheduleAutoConnect(2000);
+}
+
+function setActiveBluetoothDevice(nextDevice) {
+  if (device && device !== nextDevice && typeof device.removeEventListener === "function") {
+    device.removeEventListener("gattserverdisconnected", handleBluetoothDisconnected);
+  }
+  device = nextDevice;
+  if (device && typeof device.removeEventListener === "function") {
+    device.removeEventListener("gattserverdisconnected", handleBluetoothDisconnected);
+  }
+  if (device && typeof device.addEventListener === "function") {
+    device.addEventListener("gattserverdisconnected", handleBluetoothDisconnected);
+  }
+}
+
+async function connectBluetoothDevice(nextDevice) {
+  if (!nextDevice || !nextDevice.gatt) throw new Error("No Bluetooth device selected.");
+  stateCharacteristic = null;
+  setActiveBluetoothDevice(nextDevice);
+  setConnection("connection.connecting", false);
+  const server = await nextDevice.gatt.connect();
+  const service = await server.getPrimaryService(SERVICE_UUID);
+  stateCharacteristic = await service.getCharacteristic(STATE_CHAR_UUID);
+  rememberBluetoothDevice(nextDevice);
+  setConnection(nextDevice.name || "connection.connected", true);
+  await sendCurrent();
+}
+
+async function autoConnectKnownDevice() {
+  if (autoConnectInFlight || stateCharacteristic) return false;
+  if (!navigator.bluetooth || typeof navigator.bluetooth.getDevices !== "function") return false;
+  autoConnectInFlight = true;
+  try {
+    const devices = await navigator.bluetooth.getDevices();
+    const knownDevice = findRememberedBluetoothDevice(Array.isArray(devices) ? devices : []);
+    if (!knownDevice) return false;
+    await connectBluetoothDevice(knownDevice);
+    return true;
+  } catch {
+    stateCharacteristic = null;
+    setConnection("connection.disconnected", false);
+    return false;
+  } finally {
+    autoConnectInFlight = false;
+  }
+}
+
+function scheduleAutoConnect(delay = 0) {
+  if (autoConnectTimer) clearTimeout(autoConnectTimer);
+  autoConnectTimer = setTimeout(() => {
+    autoConnectTimer = null;
+    autoConnectKnownDevice();
+  }, delay);
 }
 
 async function sendCurrent() {
@@ -144,21 +244,13 @@ async function connectDevice() {
     setConnection("connection.noBluetoothWeb", false);
     return;
   }
+  if (await autoConnectKnownDevice()) return;
   setConnection("connection.selecting", false);
-  device = await navigator.bluetooth.requestDevice({
-    filters: DEVICE_NAME_PREFIXES.map((namePrefix) => ({ namePrefix })),
+  const selectedDevice = await navigator.bluetooth.requestDevice({
+    filters: [{ namePrefix: BLUETOOTH_SCAN_NAME_PREFIX }],
     optionalServices: [SERVICE_UUID],
   });
-  device.addEventListener("gattserverdisconnected", () => {
-    stateCharacteristic = null;
-    setConnection("connection.deviceDisconnected", false);
-  });
-  setConnection("connection.connecting", false);
-  const server = await device.gatt.connect();
-  const service = await server.getPrimaryService(SERVICE_UUID);
-  stateCharacteristic = await service.getCharacteristic(STATE_CHAR_UUID);
-  setConnection(device.name || "connection.connected", true);
-  await sendCurrent();
+  await connectBluetoothDevice(selectedDevice);
 }
 
 function connectEvents() {
@@ -216,6 +308,9 @@ languageSelect.addEventListener("change", () => {
 window.addEventListener("code-pet:language-change", () => {
   renderConnection();
   render(latestAggregate);
+  if (stateCharacteristic) {
+    sendCurrent().catch((err) => setConnection("connection.sendFailed", false, { message: err.message }));
+  }
 });
 
 applyTheme(storedTheme());
@@ -224,3 +319,4 @@ fetch("/api/snapshot")
   .then((snapshot) => render(snapshot.aggregate))
   .catch(() => render(latestAggregate));
 connectEvents();
+scheduleAutoConnect(600);

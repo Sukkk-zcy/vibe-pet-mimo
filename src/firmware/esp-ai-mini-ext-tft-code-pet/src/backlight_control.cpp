@@ -14,7 +14,7 @@
 #endif
 
 #define SCREEN_BL_PIN 3
-#define SCREEN_TIMEOUT_MS (120 * 1000)
+#define SCREEN_TIMEOUT_MS (10UL * 60UL * 1000UL)
 #define LEDC_FREQ 5000
 #define LEDC_RES 8
 #define LEDC_MAX ((1 << LEDC_RES) - 1)

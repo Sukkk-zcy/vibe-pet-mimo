@@ -7,7 +7,7 @@ const path = require("path");
 const { spawnSync } = require("child_process");
 
 const ROOT = path.resolve(__dirname, "..");
-const NODE = process.execPath;
+const HOOK_RUNNER_ENV = "VIBE_PET_HOOK_RUNNER";
 const MANAGED_MARKERS = ["code-pet", "agent-hook.js", "codex-hook.js", "cursor-hook.js"];
 
 const CURSOR_EVENTS = [
@@ -160,8 +160,13 @@ function quote(value) {
   return `"${String(value).replace(/"/g, '\\"')}"`;
 }
 
+function hookRunnerCommand() {
+  const runner = String(process.env[HOOK_RUNNER_ENV] || "").trim();
+  return runner || process.execPath;
+}
+
 function commandFor(script, ...args) {
-  return [NODE, path.join(ROOT, "hooks", script), ...args].map(quote).join(" ");
+  return [hookRunnerCommand(), path.join(ROOT, "hooks", script), ...args].map(quote).join(" ");
 }
 
 function genericCommand(agentId, event) {
@@ -669,3 +674,9 @@ function main() {
 }
 
 if (require.main === module) main();
+
+module.exports = {
+  HOOK_RUNNER_ENV,
+  runAll,
+  main,
+};

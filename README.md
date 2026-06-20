@@ -33,7 +33,7 @@
 Vibe Pet is a hardware desktop pet project for AI coding agents. It watches live activity from Codex, Cursor, Windsurf, and other AI coding agents in CLIs and IDEs, turns states such as thinking, tool use, waiting for approval, completed, and error into animated pets, then syncs the same state to Wio Terminal or ESP32-S3 hardware over BLE.
 
 <p align="center">
-  <img src="images/home.gif" width="49%" alt="Vibe Pet character picker">
+  <img src="images/home.gif" width="43.5%" alt="Vibe Pet character picker">
   <img src="images/work.gif" width="49%" alt="Vibe Pet desktop companion">
 </p>
 
@@ -68,22 +68,22 @@ Vibe Pet automatically tries to install or sync integrations for:
 
 ## Supported Hardware
 
-| Hardware | Display / role | Sync |
-| --- | --- | --- |
-| [Wio Terminal](https://www.seeedstudio.com/Wio-Terminal-p-4509.html) | Main animated pet display | BLE |
-| [ESP-AI Mini Ext](https://espai.fun/open/pcb/mini-ext/1.0.0/) | ESP32-S3-based AI dev kit for lightweight status or display output | BLE |
-| [ESP-AI Common 3.0.0](https://espai.fun/open/pcb/common/3.0.0/) | ESP32-S3 AI dev board with ST7789 TFT and status light | BLE |
-| [ESP-AI DIY ESP32S3](https://espai.fun/guide/1e7b8i8e/) | DIY ESP32S3 wiring profile for OLED display and WS2812 status light | BLE |
-| [M5Stack Core2](https://docs.m5stack.com/en/core/core2) | 320x240 color touch display | BLE |
-| [M5Stack CoreS3](https://docs.m5stack.com/en/core/CoreS3) | ESP32-S3 color touch display | BLE |
-| [M5StickC Plus2](https://docs.m5stack.com/en/core/M5StickC%20PLUS2) | Compact color display | BLE |
-| [M5Stack Cardputer](https://docs.m5stack.com/en/core/Cardputer) | Keyboard device with color display | BLE |
-| [M5Stack AtomS3](https://docs.m5stack.com/en/core/AtomS3) | Tiny ESP32-S3 color display | BLE |
-| [LILYGO T-Display ESP32](https://www.lilygo.cc/products/t-display) | 1.14-inch ST7789 color display | BLE |
-| [LILYGO T-Display S3](https://www.lilygo.cc/products/t-display-s3) | ESP32-S3 ST7789 color display | BLE |
-| [Heltec WiFi Kit 32](https://heltec.org/project/wifi-kit-32-v3/) | ESP32 OLED display | BLE |
-| [Heltec WiFi Kit 8](https://heltec.org/project/wifi-kit-8/) | ESP8266 OLED display | Wi-Fi polling |
-| [WEMOS D1 mini + OLED Shield](https://www.wemos.cc/en/latest/d1_mini_shield/oled_0_66.html) | ESP8266 OLED shield | Wi-Fi polling |
+| Hardware | Display / role | Sync | Adapted | Notes |
+| --- | --- | --- | --- | --- |
+| [Wio Terminal](https://www.seeedstudio.com/Wio-Terminal-p-4509.html) | Main animated pet display | BLE | ✅ | Mature BLE animated display target. |
+| [ESP-AI-Mini AI Dev Board, 2.4-inch display](https://espai.fun/open/pcb/mini-ext/1.0.0/) | ESP32-S3-based AI dev kit | BLE | ✅ | TFT target; LVGL character rendering. |
+| [ESP-AI v3 Dev Board, 2.4-inch display](https://espai.fun/open/pcb/common/3.0.0/) | ESP32-S3-based AI dev kit | BLE | ✅ | TFT target; LVGL character rendering. |
+| [DIY ESP32S3](https://espai.fun/guide/1e7b8i8e/) | ESP32S3 dev board | BLE | ✅ | TFT target; LVGL character rendering. |
+| [M5Stack Core2](https://docs.m5stack.com/en/core/core2) | 320x240 color touch display | BLE | ❌ | M5Unified color display target. |
+| [M5Stack CoreS3](https://docs.m5stack.com/en/core/CoreS3) | ESP32-S3 color touch display | BLE | ✅ | M5Unified ESP32-S3 target. |
+| [M5StickC Plus2](https://docs.m5stack.com/en/core/M5StickC%20PLUS2) | Compact color display | BLE | ❌ | Compact M5 color display. |
+| [M5Stack Cardputer](https://docs.m5stack.com/en/core/Cardputer) | Keyboard device with color display | BLE | ❌ | Cardputer display target. |
+| [M5Stack AtomS3](https://docs.m5stack.com/en/core/AtomS3) | Tiny ESP32-S3 color display | BLE | ❌ | Small-screen M5 target. |
+| [LILYGO T-Display ESP32](https://www.lilygo.cc/products/t-display) | 1.14-inch ST7789 color display | BLE | ❌ | TFT_eSPI display target. |
+| [LILYGO T-Display S3](https://www.lilygo.cc/products/t-display-s3) | ESP32-S3 ST7789 color display | BLE | ❌ | Parallel / ST7789 display target. |
+| [Heltec WiFi Kit 32](https://heltec.org/project/wifi-kit-32-v3/) | ESP32 OLED display | BLE | ❌ | BLE OLED target. |
+| [Heltec WiFi Kit 8](https://heltec.org/project/wifi-kit-8/) | ESP8266 OLED display | Wi-Fi polling | ❌ | Uses `/api/device-snapshot` polling. |
+| [WEMOS D1 mini + OLED Shield](https://www.wemos.cc/en/latest/d1_mini_shield/oled_0_66.html) | ESP8266 OLED shield | Wi-Fi polling | ❌ | Uses `/api/device-snapshot` polling. |
 
 Want to bring Vibe Pet to your own device? The BLE and Wi-Fi hardware payloads are intentionally small, so new screens, status lights, badges, and custom boards can be added without changing the desktop app.
 

@@ -33,7 +33,7 @@
 Vibe Pet 是一个给 AI 编程助手准备的桌宠项目。它会读取 Codex、Cursor、Windsurf 以及其他 CLI / IDE 中 AI 编程助手的实时状态，变成桌面上的小宠物动画，并通过 BLE 同步到 Wio Terminal 或 ESP32-S3 等设备。
 
 <p align="center">
-  <img src="images/home.gif" width="49%" alt="Vibe Pet 角色选择器">
+  <img src="images/home.gif" width="43.5%" alt="Vibe Pet 角色选择器">
   <img src="images/work.gif" width="49%" alt="Vibe Pet 桌面宠物">
 </p>
 
@@ -69,22 +69,22 @@ Vibe Pet 会默认尝试同步这些 AI 编程助手的 hooks 或插件配置：
 
 ## 支持的硬件
 
-| 硬件 | 显示 / 用途 | 同步方式 |
-| --- | --- | --- |
-| [Wio Terminal](https://www.seeedstudio.com/Wio-Terminal-p-4509.html) | 主显示端，用于显示桌宠动画 | BLE |
-| [ESP-AI Mini Ext](https://espai.fun/open/pcb/mini-ext/1.0.0/) | 基于 ESP32-S3 的 AI 开发套件，可作为状态灯或轻量显示端 | BLE |
-| [ESP-AI Common 3.0.0](https://espai.fun/open/pcb/common/3.0.0/) | 带 ST7789 TFT 和状态灯的 ESP32-S3 AI 开发板 | BLE |
-| [ESP-AI DIY ESP32S3](https://espai.fun/guide/1e7b8i8e/) | DIY ESP32S3 接线方案，支持 OLED 屏和 WS2812 状态灯 | BLE |
-| [M5Stack Core2](https://docs.m5stack.com/en/core/core2) | 320x240 彩色触摸屏 | BLE |
-| [M5Stack CoreS3](https://docs.m5stack.com/en/core/CoreS3) | ESP32-S3 彩色触摸屏 | BLE |
-| [M5StickC Plus2](https://docs.m5stack.com/en/core/M5StickC%20PLUS2) | 小尺寸彩色屏 | BLE |
-| [M5Stack Cardputer](https://docs.m5stack.com/en/core/Cardputer) | 带键盘和彩色屏的设备 | BLE |
-| [M5Stack AtomS3](https://docs.m5stack.com/en/core/AtomS3) | 迷你 ESP32-S3 彩色屏 | BLE |
-| [LILYGO T-Display ESP32](https://www.lilygo.cc/products/t-display) | 1.14 英寸 ST7789 彩色屏 | BLE |
-| [LILYGO T-Display S3](https://www.lilygo.cc/products/t-display-s3) | ESP32-S3 ST7789 彩色屏 | BLE |
-| [Heltec WiFi Kit 32](https://heltec.org/project/wifi-kit-32-v3/) | ESP32 OLED 屏 | BLE |
-| [Heltec WiFi Kit 8](https://heltec.org/project/wifi-kit-8/) | ESP8266 OLED 屏 | Wi-Fi 轮询 |
-| [WEMOS D1 mini + OLED Shield](https://www.wemos.cc/en/latest/d1_mini_shield/oled_0_66.html) | ESP8266 OLED 扩展屏 | Wi-Fi 轮询 |
+| 硬件 | 显示 / 用途 | 同步方式 | 适配完毕 | 说明 |
+| --- | --- | --- | --- | --- |
+| [Wio Terminal](https://www.seeedstudio.com/Wio-Terminal-p-4509.html) | 主显示端，用于显示桌宠动画 | BLE | ✅ | 成熟的 BLE 动画显示目标。 |
+| [ESP-AI-Mini AI开发板，2.4寸屏](https://espai.fun/open/pcb/mini-ext/1.0.0/) | 基于 ESP32-S3 的 AI 开发套件 | BLE | ✅ | TFT 目标；LVGL 角色渲染。 |
+| [ESP-AI v3 开发板，2.4寸屏](https://espai.fun/open/pcb/common/3.0.0/) |基于 ESP32-S3 的 AI 开发套件 | BLE | ✅ |   TFT 目标；LVGL 角色渲染。 |
+| [ESP-AI DIY ESP32S3](https://espai.fun/guide/1e7b8i8e/) | ESP32S3 开发板 | BLE | ✅ |  TFT 目标；LVGL 角色渲染。。 |
+| [M5Stack Core2](https://docs.m5stack.com/en/core/core2) | 320x240 彩色触摸屏 | BLE | ❌ | M5Unified 彩色显示目标。 |
+| [M5Stack CoreS3](https://docs.m5stack.com/en/core/CoreS3) | ESP32-S3 彩色触摸屏 | BLE | 是 | M5Unified 的 ESP32-S3 目标。 |
+| [M5StickC Plus2](https://docs.m5stack.com/en/core/M5StickC%20PLUS2) | 小尺寸彩色屏 | BLE | ❌ | 小尺寸 M5 彩色屏。 |
+| [M5Stack Cardputer](https://docs.m5stack.com/en/core/Cardputer) | 带键盘和彩色屏的设备 | BLE | ❌ | Cardputer 显示目标。 |
+| [M5Stack AtomS3](https://docs.m5stack.com/en/core/AtomS3) | 迷你 ESP32-S3 彩色屏 | BLE | ❌ | 小屏幕 M5 目标。 |
+| [LILYGO T-Display ESP32](https://www.lilygo.cc/products/t-display) | 1.14 英寸 ST7789 彩色屏 | BLE | ❌ | 基于 TFT_eSPI 的显示目标。 |
+| [LILYGO T-Display S3](https://www.lilygo.cc/products/t-display-s3) | ESP32-S3 ST7789 彩色屏 | BLE | ❌ | 并口 / ST7789 显示目标。 |
+| [Heltec WiFi Kit 32](https://heltec.org/project/wifi-kit-32-v3/) | ESP32 OLED 屏 | BLE | ❌ | BLE OLED 目标。 |
+| [Heltec WiFi Kit 8](https://heltec.org/project/wifi-kit-8/) | ESP8266 OLED 屏 | Wi-Fi 轮询 | ❌ | 使用 `/api/device-snapshot` 轮询。 |
+| [WEMOS D1 mini + OLED Shield](https://www.wemos.cc/en/latest/d1_mini_shield/oled_0_66.html) | ESP8266 OLED 扩展屏 | Wi-Fi 轮询 | ❌ | 使用 `/api/device-snapshot` 轮询。 |
 
 也欢迎把 Vibe Pet 适配到你自己的硬件上。BLE 和 Wi-Fi 硬件负载本身很轻量，新的屏幕、状态灯、徽章设备或自定义开发板都可以在不改桌面端核心逻辑的情况下接入。
 

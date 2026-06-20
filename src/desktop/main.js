@@ -14,16 +14,19 @@ const { PresenceMonitor } = require("../host/agent/presence-monitor");
 const { createServer } = require("../host");
 const { getPetdexPets } = require("../host/petdex");
 const { StateHub } = require("../host/state-hub");
-const { DEVICE_NAME_PREFIXES, SERVICE_UUID } = require("../host/protocol");
+const { SERVICE_UUID } = require("../host/protocol");
 const { flashEspMainBin, listSerialPorts: listEspSerialPorts } = require("./esp-flasher");
 const { setupAutoUpdater } = require("./updater");
+const { HOOK_RUNNER_ENV, runAll: syncAgentHooks } = require("../scripts/install-hooks");
 
 const DEFAULT_PORT = 17384;
+const BLUETOOTH_SCAN_NAME_PREFIX = "VibePet";
 const PROJECT_REPO_URL = "https://github.com/wangzongming/vibe-pet";
 const PROJECT_REPO_API_URL = "https://api.github.com/repos/wangzongming/vibe-pet";
 const PETDEX_REPO_URL = "https://github.com/crafter-station/petdex";
 const RUNTIME_PATH = path.join(os.homedir(), ".code-pet", "runtime.json");
 const ANALYTICS_STATE_PATH = path.join(os.homedir(), ".code-pet", "analytics.json");
+const HOOK_RUNNER_PATH = path.join(os.homedir(), ".code-pet", process.platform === "win32" ? "hook-runner.cmd" : "hook-runner");
 const ANALYTICS_PROVIDER = "tencent-rum";
 const DEFAULT_TENCENT_RUM_ID = "3oLdoCL4jZnGkgvoYp";
 const DEFAULT_TENCENT_RUM_HOST_URL = "https://aegis.qq.com";
@@ -206,6 +209,7 @@ let bridgeInfo = {
   serviceUuid: SERVICE_UUID,
 };
 let bluetoothSelection = null;
+let bluetoothSelectionCancelRequested = false;
 let firmwareFlashTask = null;
 let firmwareFlashCancelled = false;
 let desktopPetWindows = new Map();
@@ -610,6 +614,61 @@ function destroyTray() {
   tray = null;
 }
 
+function writeFileIfChanged(filePath, content) {
+  try {
+    if (fs.readFileSync(filePath, "utf8") === content) return;
+  } catch {}
+  fs.mkdirSync(path.dirname(filePath), { recursive: true });
+  fs.writeFileSync(filePath, content, "utf8");
+}
+
+function shQuote(value) {
+  return `'${String(value).replace(/'/g, "'\\''")}'`;
+}
+
+function writePackagedHookRunner() {
+  if (process.platform === "win32") {
+    const appExe = process.execPath.replace(/%/g, "%%");
+    writeFileIfChanged(HOOK_RUNNER_PATH, [
+      "@echo off",
+      "set \"ELECTRON_RUN_AS_NODE=1\"",
+      `"${appExe}" %*`,
+      "exit /b %ERRORLEVEL%",
+      "",
+    ].join("\r\n"));
+    return HOOK_RUNNER_PATH;
+  }
+
+  writeFileIfChanged(HOOK_RUNNER_PATH, [
+    "#!/bin/sh",
+    `ELECTRON_RUN_AS_NODE=1 exec ${shQuote(process.execPath)} "$@"`,
+    "",
+  ].join("\n"));
+  try {
+    fs.chmodSync(HOOK_RUNNER_PATH, 0o755);
+  } catch {}
+  return HOOK_RUNNER_PATH;
+}
+
+function syncHooksForPackagedApp(options = {}) {
+  if (!app.isPackaged || process.env.VIBE_PET_SKIP_HOOKS === "1") return;
+
+  const previousRunner = process.env[HOOK_RUNNER_ENV];
+  try {
+    process.env[HOOK_RUNNER_ENV] = writePackagedHookRunner();
+    const results = syncAgentHooks({ silent: true });
+    if (options.verbose) {
+      const active = results.filter((result) => !result.skipped).map((result) => result.name).join(", ");
+      console.log(`[hooks] synced packaged app hooks${active ? `: ${active}` : ""}`);
+    }
+  } catch (err) {
+    console.warn(`[hooks] packaged hook sync failed: ${err && err.message ? err.message : err}`);
+  } finally {
+    if (previousRunner === undefined) delete process.env[HOOK_RUNNER_ENV];
+    else process.env[HOOK_RUNNER_ENV] = previousRunner;
+  }
+}
+
 function parseArgs(argv) {
   const out = {
     host: "127.0.0.1",
@@ -723,9 +782,13 @@ function setupDevicePermissions() {
 }
 
 function finishBluetoothSelection(deviceId = "") {
-  if (!bluetoothSelection) return false;
+  if (!bluetoothSelection) {
+    if (!deviceId) bluetoothSelectionCancelRequested = true;
+    return false;
+  }
   const current = bluetoothSelection;
   bluetoothSelection = null;
+  bluetoothSelectionCancelRequested = false;
   try {
     current.callback(deviceId);
   } catch {}
@@ -739,6 +802,17 @@ function setupBluetoothPicker(win) {
   win.webContents.on("select-bluetooth-device", (event, deviceList, callback) => {
     event.preventDefault();
 
+    if (bluetoothSelectionCancelRequested) {
+      bluetoothSelectionCancelRequested = false;
+      try {
+        callback("");
+      } catch {}
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send("code-pet:bluetooth-devices", []);
+      }
+      return;
+    }
+
     if (!bluetoothSelection) {
       bluetoothSelection = {
         callback,
@@ -750,11 +824,11 @@ function setupBluetoothPicker(win) {
 
     for (const device of deviceList) {
       const name = device.deviceName || "";
-      const preferred = DEVICE_NAME_PREFIXES.some((prefix) => name.startsWith(prefix));
+      if (!name.startsWith(BLUETOOTH_SCAN_NAME_PREFIX)) continue;
       bluetoothSelection.devices.set(device.deviceId, {
         id: device.deviceId,
         name: name || `未命名 BLE 设备 ${device.deviceId.slice(-6)}`,
-        preferred,
+        preferred: true,
       });
     }
 
@@ -811,11 +885,15 @@ function normalizeDesktopPetPayload(pet) {
       a: compactDesktopText(packet.a || pet.agentName, "agent", 32),
       e: compactDesktopText(packet.e, "", 48),
       n: Number.isFinite(Number(packet.n)) ? Number(packet.n) : 0,
+      sl: compactDesktopText(packet.sl || pet.stateLabel || pet.state, "", 48),
+      l: compactDesktopText(packet.l, "en", 12),
+      o: compactDesktopText(packet.o, "", 120),
       m: compactDesktopText(packet.m || pet.title, "", 64),
       p: compactDesktopText(packet.p || persona.slug, "", 48),
       d: compactDesktopText(packet.d || persona.displayName, "", 48),
       k: compactDesktopText(packet.k || persona.kind, "", 24),
       u: typeof packet.u === "string" ? packet.u : "",
+      th: packet.th === "night" ? "night" : "day",
       ts: Date.now(),
     },
   };
@@ -1458,6 +1536,7 @@ if (!gotLock) {
   app.whenReady().then(async () => {
     const options = startupOptions;
     if (process.platform !== "darwin") Menu.setApplicationMenu(null);
+    syncHooksForPackagedApp(options);
     setupAppIcon();
     setupDevicePermissions();
     await selectTencentRumHostUrl();

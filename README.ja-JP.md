@@ -33,7 +33,7 @@
 Vibe Pet は AI コーディングエージェントのためのハードウェアデスクトップペットです。Codex、Cursor、Windsurf などの CLI / IDE AI エージェントの状態を読み取り、「考え中」「ツール実行中」「承認待ち」「完了」「エラー」といった動きを小さなペットのアニメーションに変換し、BLE 経由で Wio Terminal や ESP32-S3 デバイスへ同期します。
 
 <p align="center">
-  <img src="images/home.gif" width="49%" alt="Vibe Pet character picker">
+  <img src="images/home.gif" width="43.5%" alt="Vibe Pet character picker">
   <img src="images/work.gif" width="49%" alt="Vibe Pet desktop companion">
 </p>
 
@@ -68,22 +68,22 @@ Vibe Pet は以下の AI エージェントの hooks またはプラグイン設
 
 ## 対応ハードウェア
 
-| ハードウェア | 表示 / 役割 | 同期方式 |
-| --- | --- | --- |
-| [Wio Terminal](https://www.seeedstudio.com/Wio-Terminal-p-4509.html) | メインのアニメーション表示デバイス | BLE |
-| [ESP-AI Mini Ext](https://espai.fun/open/pcb/mini-ext/1.0.0/) | ESP32-S3 ベースの AI 開発キット。軽量なステータスライトまたは表示デバイスとして利用 | BLE |
-| [ESP-AI Common 3.0.0](https://espai.fun/open/pcb/common/3.0.0/) | ST7789 TFT とステータスライト付きの ESP32-S3 AI 開発ボード | BLE |
-| [ESP-AI DIY ESP32S3](https://espai.fun/guide/1e7b8i8e/) | OLED 表示と WS2812 ステータスライト向けの DIY ESP32S3 配線プロファイル | BLE |
-| [M5Stack Core2](https://docs.m5stack.com/en/core/core2) | 320x240 カラータッチディスプレイ | BLE |
-| [M5Stack CoreS3](https://docs.m5stack.com/en/core/CoreS3) | ESP32-S3 カラータッチディスプレイ | BLE |
-| [M5StickC Plus2](https://docs.m5stack.com/en/core/M5StickC%20PLUS2) | 小型カラーディスプレイ | BLE |
-| [M5Stack Cardputer](https://docs.m5stack.com/en/core/Cardputer) | キーボード付きカラーディスプレイ端末 | BLE |
-| [M5Stack AtomS3](https://docs.m5stack.com/en/core/AtomS3) | 小型 ESP32-S3 カラーディスプレイ | BLE |
-| [LILYGO T-Display ESP32](https://www.lilygo.cc/products/t-display) | 1.14 インチ ST7789 カラーディスプレイ | BLE |
-| [LILYGO T-Display S3](https://www.lilygo.cc/products/t-display-s3) | ESP32-S3 ST7789 カラーディスプレイ | BLE |
-| [Heltec WiFi Kit 32](https://heltec.org/project/wifi-kit-32-v3/) | ESP32 OLED ディスプレイ | BLE |
-| [Heltec WiFi Kit 8](https://heltec.org/project/wifi-kit-8/) | ESP8266 OLED ディスプレイ | Wi-Fi ポーリング |
-| [WEMOS D1 mini + OLED Shield](https://www.wemos.cc/en/latest/d1_mini_shield/oled_0_66.html) | ESP8266 OLED シールド | Wi-Fi ポーリング |
+| ハードウェア | 表示 / 役割 | 同期方式 | 対応状況 | 補足 |
+| --- | --- | --- | --- | --- |
+| [Wio Terminal](https://www.seeedstudio.com/Wio-Terminal-p-4509.html) | メインのアニメーション表示デバイス | BLE | ✅ | 安定した BLE アニメーション表示ターゲットです。 |
+| [ESP-AI-Mini AI開発ボード、2.4インチ画面](https://espai.fun/open/pcb/mini-ext/1.0.0/) | ESP32-S3 ベースの AI 開発キット | BLE | ✅ | TFT ターゲット。LVGL キャラクター描画。 |
+| [ESP-AI v3 開発ボード、2.4インチ画面](https://espai.fun/open/pcb/common/3.0.0/) | ESP32-S3 ベースの AI 開発キット | BLE | ✅ | TFT ターゲット。LVGL キャラクター描画。 |
+| [ESP-AI DIY ESP32S3](https://espai.fun/guide/1e7b8i8e/) | ESP32S3 開発ボード | BLE | ✅ | TFT ターゲット。LVGL キャラクター描画。 |
+| [M5Stack Core2](https://docs.m5stack.com/en/core/core2) | 320x240 カラータッチディスプレイ | BLE | ❌ | M5Unified カラーディスプレイターゲットです。 |
+| [M5Stack CoreS3](https://docs.m5stack.com/en/core/CoreS3) | ESP32-S3 カラータッチディスプレイ | BLE | ✅ | M5Unified の ESP32-S3 ターゲットです。 |
+| [M5StickC Plus2](https://docs.m5stack.com/en/core/M5StickC%20PLUS2) | 小型カラーディスプレイ | BLE | ❌ | 小型 M5 カラーディスプレイです。 |
+| [M5Stack Cardputer](https://docs.m5stack.com/en/core/Cardputer) | キーボード付きカラーディスプレイ端末 | BLE | ❌ | Cardputer 表示ターゲットです。 |
+| [M5Stack AtomS3](https://docs.m5stack.com/en/core/AtomS3) | 小型 ESP32-S3 カラーディスプレイ | BLE | ❌ | 小型画面の M5 ターゲットです。 |
+| [LILYGO T-Display ESP32](https://www.lilygo.cc/products/t-display) | 1.14 インチ ST7789 カラーディスプレイ | BLE | ❌ | TFT_eSPI ベースの表示ターゲットです。 |
+| [LILYGO T-Display S3](https://www.lilygo.cc/products/t-display-s3) | ESP32-S3 ST7789 カラーディスプレイ | BLE | ❌ | パラレル / ST7789 表示ターゲットです。 |
+| [Heltec WiFi Kit 32](https://heltec.org/project/wifi-kit-32-v3/) | ESP32 OLED ディスプレイ | BLE | ❌ | BLE OLED ターゲットです。 |
+| [Heltec WiFi Kit 8](https://heltec.org/project/wifi-kit-8/) | ESP8266 OLED ディスプレイ | Wi-Fi ポーリング | ❌ | `/api/device-snapshot` のポーリングを利用します。 |
+| [WEMOS D1 mini + OLED Shield](https://www.wemos.cc/en/latest/d1_mini_shield/oled_0_66.html) | ESP8266 OLED シールド | Wi-Fi ポーリング | ❌ | `/api/device-snapshot` のポーリングを利用します。 |
 
 Vibe Pet を自分のハードウェアに対応させることも歓迎します。BLE と Wi-Fi のハードウェア向けペイロードは小さく保っているため、新しい画面、ステータスライト、バッジ型デバイス、カスタムボードもデスクトップアプリの中核を変えずに追加できます。
 

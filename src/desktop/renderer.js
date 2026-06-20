@@ -2,22 +2,8 @@
 
 const SERVICE_UUID = "7b71f91a-3c7b-4c3b-9f2d-2dbdccd5c001";
 const STATE_CHAR_UUID = "7b71f91a-3c7b-4c3b-9f2d-2dbdccd5c002";
-const DEVICE_NAME_PREFIXES = [
-  "VibePet-Wio",
-  "VibePet-ESP-AI",
-  "VibePet-ESP-Display",
-  "VibePet-M5",
-  "VibePet-LILYGO",
-  "VibePet-Heltec",
-  "VibePet-WEMOS",
-  "CodePet-Wio",
-  "CodePet-ESP-AI",
-  "CodePet-ESP-Display",
-  "CodePet-M5",
-  "CodePet-LILYGO",
-  "CodePet-Heltec",
-  "CodePet-WEMOS",
-];
+const BLUETOOTH_SCAN_NAME_PREFIX = "VibePet";
+const BLUETOOTH_DEVICE_STORAGE_KEY = "code-pet-bluetooth-device";
 const PET_SELECTION_STORAGE_KEY = "code-pet-personas";
 const PET_CACHE_STORAGE_KEY = "code-pet-persona-cache";
 const LEGACY_BUILTIN_PET_SLUGS = new Set(["code-pet"]);
@@ -39,6 +25,12 @@ const PETDEX_REQUIRED_HEIGHT = PETDEX_FRAME_HEIGHT * PETDEX_REQUIRED_ROWS;
 const PETDEX_FRAME_MS = 150;
 const PETDEX_PICKER_PAGE_SIZE = 100;
 const PETDEX_SOURCE_REPO = "https://github.com/crafter-station/petdex";
+const HARDWARE_PERSONA_FRAME_WIDTH = 144;
+const HARDWARE_PERSONA_FRAME_HEIGHT = 156;
+const HARDWARE_PERSONA_FRAME_BYTES = HARDWARE_PERSONA_FRAME_WIDTH * HARDWARE_PERSONA_FRAME_HEIGHT * 2;
+const HARDWARE_PERSONA_CHUNK_CHARS = 160;
+const HARDWARE_PERSONA_CHUNK_DELAY_MS = 8;
+const HARDWARE_OUTPUT_MAX_CHARS = 120;
 const TENCENT_AEGIS_LOCAL_SDK_URL = "../../node_modules/aegis-web-sdk/lib/aegis.min.js";
 const TENCENT_AEGIS_SDK_URL = "https://tam.cdn-go.cn/aegis-sdk/latest/aegis.min.js";
 const PETDEX_ROW_BY_STATE = {
@@ -284,9 +276,15 @@ const statusPanelBtn = document.getElementById("statusPanelBtn");
 const statusPanelModal = document.getElementById("statusPanelModal");
 const statusPanelCloseBtn = document.getElementById("statusPanelCloseBtn");
 const statusActions = document.querySelector(".status-actions");
+const devicePickerModal = document.getElementById("devicePickerModal");
 const devicePicker = document.getElementById("devicePicker");
 const deviceList = document.getElementById("deviceList");
 const cancelDeviceBtn = document.getElementById("cancelDeviceBtn");
+const disconnectConfirmModal = document.getElementById("disconnectConfirmModal");
+const disconnectConfirmMessage = document.getElementById("disconnectConfirmMessage");
+const disconnectConfirmDevice = document.getElementById("disconnectConfirmDevice");
+const disconnectConfirmCancelBtn = document.getElementById("disconnectConfirmCancelBtn");
+const disconnectConfirmConfirmBtn = document.getElementById("disconnectConfirmConfirmBtn");
 const petPickerModal = document.getElementById("petPickerModal");
 const petPickerSearch = document.getElementById("petPickerSearch");
 const petPickerKind = document.getElementById("petPickerKind");
@@ -326,6 +324,11 @@ const firmwareLog = document.getElementById("firmwareLog");
 let device = null;
 let stateCharacteristic = null;
 let selectingDevice = false;
+let deviceSelectionCancelled = false;
+let autoConnectInFlight = false;
+let autoConnectTimer = null;
+let manualDisconnectInFlight = false;
+let pendingDisconnectConfirm = null;
 let petSelections = loadPetSelections();
 let cachedPetdexPetsBySlug = loadCachedPetdexPets();
 let petdexPets = [];
@@ -346,6 +349,11 @@ let localPetSlugTouched = false;
 let petViewOrder = [];
 let petSelectionAliasesByViewId = new Map();
 let lastBluetoothDevices = [];
+let bluetoothWriteQueue = Promise.resolve();
+let hardwarePersonaImageCache = new Map();
+let lastHardwarePersonaImageKey = "";
+let latestHardwarePersonaRequestSignature = "";
+let hardwarePersonaTransferRevision = 0;
 let firmwareTargets = [];
 let firmwarePorts = [];
 let firmwareModalOpen = false;
@@ -368,6 +376,12 @@ let analyticsConfig = null;
 let analyticsQueue = [];
 let analyticsReady = false;
 let aegisSdkPromise = null;
+
+function resetHardwarePersonaTransferState() {
+  lastHardwarePersonaImageKey = "";
+  latestHardwarePersonaRequestSignature = "";
+  hardwarePersonaTransferRevision++;
+}
 
 function sanitizeAnalyticsEventName(eventName) {
   if (typeof eventName !== "string") return "";
@@ -594,9 +608,40 @@ function closeStatusPanel() {
   setStatusPanelOpen(false);
 }
 
+function currentBluetoothDeviceName() {
+  return (device && device.name) || t("device.unnamed");
+}
+
+function renderDisconnectConfirm() {
+  if (!disconnectConfirmModal || disconnectConfirmModal.hidden) return;
+  const name = currentBluetoothDeviceName();
+  if (disconnectConfirmMessage) {
+    disconnectConfirmMessage.textContent = t("device.disconnectMessage", { name });
+  }
+  if (disconnectConfirmDevice) disconnectConfirmDevice.textContent = name;
+}
+
+function closeDisconnectConfirm(result = false) {
+  if (disconnectConfirmModal) disconnectConfirmModal.hidden = true;
+  const pending = pendingDisconnectConfirm;
+  pendingDisconnectConfirm = null;
+  if (pending) pending(result);
+}
+
+function confirmDisconnectDevice() {
+  if (!disconnectConfirmModal) return Promise.resolve(false);
+  if (pendingDisconnectConfirm) closeDisconnectConfirm(false);
+  renderDisconnectConfirm();
+  disconnectConfirmModal.hidden = false;
+  renderDisconnectConfirm();
+  if (disconnectConfirmCancelBtn) disconnectConfirmCancelBtn.focus();
+  return new Promise((resolve) => {
+    pendingDisconnectConfirm = resolve;
+  });
+}
+
 function compactPacket(aggregate) {
-  if (aggregate && aggregate.devicePacket) return { ...aggregate.devicePacket };
-  return {
+  const packet = aggregate && aggregate.devicePacket ? { ...aggregate.devicePacket } : {
     v: 1,
     s: aggregate.state || "idle",
     a: aggregate.agent || "agent",
@@ -604,6 +649,12 @@ function compactPacket(aggregate) {
     n: aggregate.activeCount || 0,
     ts: Date.now(),
   };
+  packet.sl = stateLabel(packet.s);
+  packet.l = window.VibePetI18n && typeof window.VibePetI18n.getLocale === "function" ? window.VibePetI18n.getLocale() : "en";
+  const output = clampText((aggregate && aggregate.output) || "", HARDWARE_OUTPUT_MAX_CHARS);
+  if (output) packet.o = output;
+  else delete packet.o;
+  return packet;
 }
 
 function compactPersona(persona) {
@@ -631,6 +682,16 @@ function packetWithPersona(packet, persona) {
   const spriteUrl = hardwareSpriteUrl(compact.spritesheetUrl);
   if (spriteUrl) next.u = spriteUrl;
   else delete next.u;
+  next.th = storedTheme();
+  next.sl = stateLabel(next.s);
+  next.l = window.VibePetI18n && typeof window.VibePetI18n.getLocale === "function" ? window.VibePetI18n.getLocale() : "en";
+  return next;
+}
+
+function packetWithTheme(packet) {
+  const next = { ...(packet || {}), th: storedTheme() };
+  next.sl = stateLabel(next.s);
+  next.l = window.VibePetI18n && typeof window.VibePetI18n.getLocale === "function" ? window.VibePetI18n.getLocale() : "en";
   return next;
 }
 
@@ -918,6 +979,136 @@ function updatePetdexSpriteFrames() {
   }
 }
 
+function isEmbeddedHardwarePersona(persona) {
+  const slug = String(persona && persona.slug ? persona.slug : "");
+  return !slug || slug === "lulu" || slug === BUILTIN_PET.slug || slug.startsWith("lulu-capybara") || LEGACY_BUILTIN_PET_SLUGS.has(slug);
+}
+
+function loadHardwarePersonaImage(url) {
+  if (!url) return Promise.reject(new Error("Missing persona spritesheet."));
+  const cached = hardwarePersonaImageCache.get(url);
+  if (cached) return cached;
+
+  const promise = new Promise((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error("Unable to load persona spritesheet."));
+    if (/^https?:/i.test(url)) image.crossOrigin = "anonymous";
+    image.src = url;
+  });
+  hardwarePersonaImageCache.set(url, promise);
+  return promise;
+}
+
+function hardwarePersonaMeta(url, image) {
+  const cached = petdexImageMeta.get(url);
+  if (cached) return cached;
+  const meta = {
+    cols: Math.max(1, Math.round(image.naturalWidth / PETDEX_FRAME_WIDTH) || PETDEX_DEFAULT_COLS),
+    rows: Math.max(1, Math.round(image.naturalHeight / PETDEX_FRAME_HEIGHT) || PETDEX_DEFAULT_ROWS),
+  };
+  petdexImageMeta.set(url, meta);
+  return meta;
+}
+
+function hardwarePersonaBackground(theme) {
+  return theme === "night" ? "rgb(0, 0, 0)" : "rgb(238, 244, 247)";
+}
+
+function rgb565BytesFromImageData(imageData) {
+  const rgba = imageData.data;
+  const bytes = new Uint8Array(HARDWARE_PERSONA_FRAME_BYTES);
+  for (let i = 0, j = 0; i < rgba.length; i += 4, j += 2) {
+    const value = ((rgba[i] & 0xF8) << 8) | ((rgba[i + 1] & 0xFC) << 3) | (rgba[i + 2] >> 3);
+    bytes[j] = value & 0xFF;
+    bytes[j + 1] = value >> 8;
+  }
+  return bytes;
+}
+
+function encodeRgb565Rle(raw) {
+  const out = [];
+  for (let i = 0; i < raw.length;) {
+    const lo = raw[i];
+    const hi = raw[i + 1];
+    let count = 1;
+    while (count < 255 && i + count * 2 + 1 < raw.length && raw[i + count * 2] === lo && raw[i + count * 2 + 1] === hi) {
+      count++;
+    }
+    out.push(lo, hi, count);
+    i += count * 2;
+  }
+  return Uint8Array.from(out);
+}
+
+function bytesToBase64(bytes) {
+  let binary = "";
+  const blockSize = 0x8000;
+  for (let i = 0; i < bytes.length; i += blockSize) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + blockSize));
+  }
+  return btoa(binary);
+}
+
+function hardwarePersonaTransferId(key) {
+  let hash = 2166136261;
+  for (let i = 0; i < key.length; i++) {
+    hash ^= key.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0).toString(36);
+}
+
+async function buildHardwarePersonaFrame(persona, state, theme) {
+  const image = await loadHardwarePersonaImage(persona.spritesheetUrl);
+  const meta = hardwarePersonaMeta(persona.spritesheetUrl, image);
+  const cols = Math.max(1, Number(meta.cols) || PETDEX_DEFAULT_COLS);
+  const rows = Math.max(1, Number(meta.rows) || PETDEX_DEFAULT_ROWS);
+  const row = Math.max(0, Math.min(rows - 1, PETDEX_ROW_BY_STATE[state] === undefined ? 0 : PETDEX_ROW_BY_STATE[state]));
+  const frame = petdexFrameForState(state || "idle", cols, false);
+  const sourceW = image.naturalWidth / cols;
+  const sourceH = image.naturalHeight / rows;
+  const canvas = document.createElement("canvas");
+  canvas.width = HARDWARE_PERSONA_FRAME_WIDTH;
+  canvas.height = HARDWARE_PERSONA_FRAME_HEIGHT;
+  const ctx = canvas.getContext("2d", { willReadFrequently: true });
+  if (!ctx) throw new Error("Unable to prepare persona frame.");
+
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = "high";
+  ctx.fillStyle = hardwarePersonaBackground(theme);
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.drawImage(
+    image,
+    frame * sourceW,
+    row * sourceH,
+    sourceW,
+    sourceH,
+    0,
+    0,
+    HARDWARE_PERSONA_FRAME_WIDTH,
+    HARDWARE_PERSONA_FRAME_HEIGHT
+  );
+
+  const raw = rgb565BytesFromImageData(ctx.getImageData(0, 0, canvas.width, canvas.height));
+  const rle = encodeRgb565Rle(raw);
+  const encoded = rle.length < raw.length ? rle : raw;
+  const format = encoded === rle ? "rgb565-rle" : "rgb565";
+  return {
+    bytes: encoded,
+    format,
+    key: [
+      persona.slug || "",
+      persona.spritesheetUrl || "",
+      state || "idle",
+      theme || "day",
+      row,
+      frame,
+      format,
+    ].join("|"),
+  };
+}
+
 function selectablePetdexPets() {
   return petdexPets.filter((pet) => pet.slug !== BUILTIN_PET.slug);
 }
@@ -1157,8 +1348,9 @@ async function applyLocalPetUpload() {
     };
     petdexImageMeta.set(spritesheetUrl, { cols: PETDEX_REQUIRED_COLS, rows: PETDEX_REQUIRED_ROWS });
     setPetForView(activePetPickerId, slug, persona);
+    const selectedViewId = activePetPickerId;
     closePetPicker();
-    renderSnapshot(latestSnapshot);
+    renderSnapshot(latestSnapshot, { send: true, hardwarePetId: selectedViewId });
   } catch (err) {
     setLocalPetStatus(err && err.message ? err.message : "本地角色保存失败。");
   }
@@ -1343,9 +1535,12 @@ function packetForSession(session) {
     a: clampText(sessionLabel(session), 14) || "agent",
     e: clampText(session.event || "", 24),
     n: Number.isFinite(activeCountValue) ? activeCountValue : (isActiveState(session.state) ? 1 : 0),
+    sl: stateLabel(session.state || "idle"),
     ts: Date.now(),
   };
   if (title) packet.m = title;
+  const output = clampText(session.output || "", HARDWARE_OUTPUT_MAX_CHARS);
+  if (output) packet.o = output;
   return packet;
 }
 
@@ -1464,7 +1659,7 @@ function createPetChoice(viewId, persona, selectedSlug) {
     event.stopPropagation();
     setPetForView(viewId, persona.slug, persona);
     closePetPicker();
-    renderSnapshot(latestSnapshot);
+    renderSnapshot(latestSnapshot, { send: true, hardwarePetId: viewId });
   });
   return button;
 }
@@ -1642,7 +1837,7 @@ function syncDesktopPets(views) {
 }
 
 function renderOutput(aggregate) {
-  const packet = compactPacket(aggregate || latestSnapshot.aggregate);
+  const packet = packetWithTheme(compactPacket(aggregate || latestSnapshot.aggregate));
   stateName.textContent = stateLabel(packet.s);
   stateName.title = packet.s || "idle";
   agentName.textContent = packet.a || "agent";
@@ -1662,7 +1857,7 @@ function renderSnapshot(snapshot, options = {}) {
   renderPetPickerModal();
   renderOutput(latestSnapshot.aggregate);
   if (options.send) {
-    sendCurrent().catch((err) => setConnection("connection.sendFailed", false, { message: err.message }));
+    sendCurrent({ hardwarePetId: options.hardwarePetId }).catch((err) => setConnection("connection.sendFailed", false, { message: err.message }));
   }
 }
 
@@ -1700,12 +1895,30 @@ function applyTheme(theme) {
   if (window.codePet && typeof window.codePet.setWindowTheme === "function") {
     window.codePet.setWindowTheme(nextTheme);
   }
+  const views = buildViews(latestSnapshot);
+  syncDesktopPets(views);
+  renderOutput(latestSnapshot.aggregate);
+  if (stateCharacteristic) {
+    sendCurrent().catch((err) => setConnection("connection.sendFailed", false, { message: err.message }));
+  }
 }
 
 function hideDevicePicker() {
   selectingDevice = false;
+  devicePickerModal.hidden = true;
   devicePicker.hidden = true;
   deviceList.replaceChildren();
+}
+
+async function cancelDeviceSelection() {
+  const wasSelecting = selectingDevice;
+  if (!wasSelecting) return;
+  deviceSelectionCancelled = true;
+  hideDevicePicker();
+  setConnection("connection.cancelled", false);
+  try {
+    await window.codePet.chooseBluetoothDevice("");
+  } catch {}
 }
 
 function renderDevicePicker(devices = []) {
@@ -1715,8 +1928,9 @@ function renderDevicePicker(devices = []) {
     return;
   }
 
+  setStatusPanelOpen(false);
+  devicePickerModal.hidden = false;
   devicePicker.hidden = false;
-  openStatusPanel();
   deviceList.replaceChildren();
 
   if (!devices.length) {
@@ -1913,17 +2127,267 @@ function handleFirmwareFlashEvent(payload = {}) {
   }
 }
 
-async function sendCurrent() {
-  if (!stateCharacteristic) return;
-  const hardwarePet = latestHardwarePets[0];
-  const packet = hardwarePet && hardwarePet.packet ? { ...hardwarePet.packet } : compactPacket(latestSnapshot.aggregate);
-  packet.ts = Date.now();
-  const bytes = new TextEncoder().encode(JSON.stringify(packet));
-  if (stateCharacteristic.writeValueWithResponse) {
-    await stateCharacteristic.writeValueWithResponse(bytes);
-  } else {
-    await stateCharacteristic.writeValue(bytes);
+function readRememberedBluetoothDevice() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(BLUETOOTH_DEVICE_STORAGE_KEY) || "{}");
+    if (!parsed || typeof parsed !== "object") return null;
+    const id = typeof parsed.id === "string" ? parsed.id : "";
+    const name = typeof parsed.name === "string" ? parsed.name : "";
+    return id || name ? { id, name } : null;
+  } catch {
+    return null;
   }
+}
+
+function rememberBluetoothDevice(nextDevice) {
+  if (!nextDevice) return;
+  const id = typeof nextDevice.id === "string" ? nextDevice.id : "";
+  const name = typeof nextDevice.name === "string" ? nextDevice.name : "";
+  if (!id && !name) return;
+  if (name && !name.startsWith(BLUETOOTH_SCAN_NAME_PREFIX)) return;
+  try {
+    localStorage.setItem(BLUETOOTH_DEVICE_STORAGE_KEY, JSON.stringify({ id, name, updatedAt: Date.now() }));
+  } catch {}
+}
+
+function isVibePetBluetoothDevice(nextDevice) {
+  return !!(nextDevice && typeof nextDevice.name === "string" && nextDevice.name.startsWith(BLUETOOTH_SCAN_NAME_PREFIX));
+}
+
+function findRememberedBluetoothDevice(devices = []) {
+  const remembered = readRememberedBluetoothDevice();
+  if (remembered && remembered.id) {
+    const exact = devices.find((item) => item && item.id === remembered.id);
+    if (exact) return exact;
+  }
+  if (remembered && remembered.name) {
+    const exactName = devices.find((item) => item && item.name === remembered.name);
+    if (exactName) return exactName;
+  }
+  if (remembered) return null;
+  const vibePetDevices = devices.filter(isVibePetBluetoothDevice);
+  return vibePetDevices.length === 1 ? vibePetDevices[0] : null;
+}
+
+function handleBluetoothDisconnected() {
+  stateCharacteristic = null;
+  resetHardwarePersonaTransferState();
+  if (manualDisconnectInFlight) {
+    manualDisconnectInFlight = false;
+    setActiveBluetoothDevice(null);
+    setConnection("connection.disconnected", false);
+    return;
+  }
+  setConnection("connection.deviceDisconnected", false);
+  scheduleAutoConnect(2000);
+}
+
+function hasActiveBluetoothConnection() {
+  if (!stateCharacteristic) return false;
+  if (!device || !device.gatt) return true;
+  return device.gatt.connected !== false;
+}
+
+function setActiveBluetoothDevice(nextDevice) {
+  if (device && device !== nextDevice && typeof device.removeEventListener === "function") {
+    device.removeEventListener("gattserverdisconnected", handleBluetoothDisconnected);
+  }
+  device = nextDevice;
+  if (device && typeof device.removeEventListener === "function") {
+    device.removeEventListener("gattserverdisconnected", handleBluetoothDisconnected);
+  }
+  if (device && typeof device.addEventListener === "function") {
+    device.addEventListener("gattserverdisconnected", handleBluetoothDisconnected);
+  }
+}
+
+async function connectBluetoothDevice(nextDevice) {
+  if (!nextDevice || !nextDevice.gatt) throw new Error("No Bluetooth device selected.");
+  stateCharacteristic = null;
+  resetHardwarePersonaTransferState();
+  setActiveBluetoothDevice(nextDevice);
+  setConnection("connection.connecting", false);
+  const server = await nextDevice.gatt.connect();
+  const service = await server.getPrimaryService(SERVICE_UUID);
+  stateCharacteristic = await service.getCharacteristic(STATE_CHAR_UUID);
+  rememberBluetoothDevice(nextDevice);
+  setConnection(nextDevice.name || "connection.connected", true);
+  await sendCurrent();
+}
+
+async function autoConnectKnownDevice() {
+  if (autoConnectInFlight || selectingDevice || stateCharacteristic) return false;
+  if (!navigator.bluetooth || typeof navigator.bluetooth.getDevices !== "function") return false;
+  autoConnectInFlight = true;
+  try {
+    const devices = await navigator.bluetooth.getDevices();
+    const knownDevice = findRememberedBluetoothDevice(Array.isArray(devices) ? devices : []);
+    if (!knownDevice) return false;
+    await connectBluetoothDevice(knownDevice);
+    return true;
+  } catch {
+    stateCharacteristic = null;
+    resetHardwarePersonaTransferState();
+    setConnection("connection.disconnected", false);
+    return false;
+  } finally {
+    autoConnectInFlight = false;
+  }
+}
+
+function scheduleAutoConnect(delay = 0) {
+  if (autoConnectTimer) clearTimeout(autoConnectTimer);
+  autoConnectTimer = setTimeout(() => {
+    autoConnectTimer = null;
+    autoConnectKnownDevice();
+  }, delay);
+}
+
+async function disconnectBluetoothDevice() {
+  if (!hasActiveBluetoothConnection()) {
+    stateCharacteristic = null;
+    resetHardwarePersonaTransferState();
+    setActiveBluetoothDevice(null);
+    setConnection("connection.disconnected", false);
+    return;
+  }
+  if (!(await confirmDisconnectDevice())) return;
+  if (autoConnectTimer) {
+    clearTimeout(autoConnectTimer);
+    autoConnectTimer = null;
+  }
+  manualDisconnectInFlight = true;
+  const currentDevice = device;
+  stateCharacteristic = null;
+  resetHardwarePersonaTransferState();
+  try {
+    if (currentDevice && currentDevice.gatt && typeof currentDevice.gatt.disconnect === "function") {
+      currentDevice.gatt.disconnect();
+    }
+  } catch {
+  } finally {
+    manualDisconnectInFlight = false;
+    setActiveBluetoothDevice(null);
+    setConnection("connection.disconnected", false);
+  }
+}
+
+function hardwarePetForSend(options = {}) {
+  const preferredId = typeof options === "string" ? options : options.hardwarePetId;
+  if (preferredId) {
+    const preferred = latestHardwarePets.find((pet) => pet && pet.id === preferredId);
+    if (preferred) return preferred;
+  }
+  return latestHardwarePets[0];
+}
+
+function enqueueBluetoothWrite(task) {
+  const run = bluetoothWriteQueue.catch(() => {}).then(task);
+  bluetoothWriteQueue = run;
+  return run;
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function writeBluetoothJson(payload) {
+  const characteristic = stateCharacteristic;
+  if (!characteristic) throw new Error("No Bluetooth connection.");
+  const bytes = new TextEncoder().encode(JSON.stringify(payload));
+  if (characteristic.writeValueWithResponse) {
+    await characteristic.writeValueWithResponse(bytes);
+  } else {
+    await characteristic.writeValue(bytes);
+  }
+}
+
+function hardwarePersonaTransferSignature(hardwarePet, packet) {
+  if (!hardwarePet || !hardwarePet.persona) return "";
+  const persona = desktopPetPersona(hardwarePet.persona);
+  if (isEmbeddedHardwarePersona(persona) || !persona.spritesheetUrl) return "";
+  return [
+    persona.slug || "",
+    persona.spritesheetUrl || "",
+    (packet && packet.s) || hardwarePet.state || "idle",
+    (packet && packet.th) || storedTheme(),
+  ].join("|");
+}
+
+async function abortHardwarePersonaTransfer(id) {
+  if (!id || !stateCharacteristic) return;
+  try {
+    await writeBluetoothJson({ im: "x", id });
+  } catch {}
+}
+
+async function sendHardwarePersonaFrame(hardwarePet, packet, revision, signature) {
+  if (!hardwarePet || !hardwarePet.persona) return;
+  const persona = desktopPetPersona(hardwarePet.persona);
+  if (isEmbeddedHardwarePersona(persona) || !persona.spritesheetUrl) return;
+  if (signature && revision !== hardwarePersonaTransferRevision) return;
+
+  const state = (packet && packet.s) || hardwarePet.state || "idle";
+  const theme = (packet && packet.th) || storedTheme();
+  const frame = await buildHardwarePersonaFrame(persona, state, theme);
+  if (signature && revision !== hardwarePersonaTransferRevision) return;
+  if (frame.key === lastHardwarePersonaImageKey) return;
+
+  const id = hardwarePersonaTransferId(frame.key);
+  await writeBluetoothJson({
+    im: "s",
+    id,
+    p: clampText(persona.slug, 48),
+    w: HARDWARE_PERSONA_FRAME_WIDTH,
+    h: HARDWARE_PERSONA_FRAME_HEIGHT,
+    f: frame.format,
+    z: HARDWARE_PERSONA_FRAME_BYTES,
+  });
+
+  const base64 = bytesToBase64(frame.bytes);
+  let seq = 0;
+  for (let offset = 0; offset < base64.length; offset += HARDWARE_PERSONA_CHUNK_CHARS) {
+    if (signature && revision !== hardwarePersonaTransferRevision) {
+      await abortHardwarePersonaTransfer(id);
+      return;
+    }
+    await writeBluetoothJson({
+      im: "c",
+      id,
+      q: seq++,
+      d: base64.slice(offset, offset + HARDWARE_PERSONA_CHUNK_CHARS),
+    });
+    await sleep(HARDWARE_PERSONA_CHUNK_DELAY_MS);
+  }
+
+  if (signature && revision !== hardwarePersonaTransferRevision) {
+    await abortHardwarePersonaTransfer(id);
+    return;
+  }
+  await writeBluetoothJson({ im: "e", id });
+  lastHardwarePersonaImageKey = frame.key;
+}
+
+async function sendCurrent(options = {}) {
+  if (!stateCharacteristic) return;
+  const hardwarePet = hardwarePetForSend(options);
+  const packet = packetWithTheme(hardwarePet && hardwarePet.packet ? hardwarePet.packet : compactPacket(latestSnapshot.aggregate));
+  packet.ts = Date.now();
+  const transferSignature = hardwarePersonaTransferSignature(hardwarePet, packet);
+  let transferRevision = hardwarePersonaTransferRevision;
+  if (transferSignature !== latestHardwarePersonaRequestSignature) {
+    latestHardwarePersonaRequestSignature = transferSignature;
+    transferRevision = ++hardwarePersonaTransferRevision;
+  }
+  return enqueueBluetoothWrite(async () => {
+    if (transferSignature && transferRevision !== hardwarePersonaTransferRevision) return;
+    await writeBluetoothJson(packet);
+    try {
+      await sendHardwarePersonaFrame(hardwarePet, packet, transferRevision, transferSignature);
+    } catch (err) {
+      setConnection("connection.sendFailed", false, { message: err && err.message ? err.message : String(err) });
+    }
+  });
 }
 
 async function connectDevice() {
@@ -1932,34 +2396,36 @@ async function connectDevice() {
     return;
   }
 
+  if (hasActiveBluetoothConnection()) {
+    await disconnectBluetoothDevice();
+    return;
+  }
+
   stateCharacteristic = null;
+
+  if (await autoConnectKnownDevice()) return;
+
+  deviceSelectionCancelled = false;
   selectingDevice = true;
   renderDevicePicker([]);
   setConnection("connection.scanning", false);
 
-  device = await navigator.bluetooth.requestDevice({
-    acceptAllDevices: true,
+  const selectedDevice = await navigator.bluetooth.requestDevice({
+    filters: [{ namePrefix: BLUETOOTH_SCAN_NAME_PREFIX }],
     optionalServices: [SERVICE_UUID],
   });
 
   hideDevicePicker();
-  device.addEventListener("gattserverdisconnected", () => {
-    stateCharacteristic = null;
-    setConnection("connection.deviceDisconnected", false);
-  });
-
-  setConnection("connection.connecting", false);
-  const server = await device.gatt.connect();
-  const service = await server.getPrimaryService(SERVICE_UUID);
-  stateCharacteristic = await service.getCharacteristic(STATE_CHAR_UUID);
-  setConnection(device.name || "connection.connected", true);
-  await sendCurrent();
+  deviceSelectionCancelled = false;
+  await connectBluetoothDevice(selectedDevice);
 }
 
 connectBtn.addEventListener("click", () => {
   connectDevice().catch((err) => {
+    const cancelled = deviceSelectionCancelled;
     hideDevicePicker();
-    setConnection(connectionErrorMessage(err), false);
+    setConnection(cancelled ? "connection.cancelled" : connectionErrorMessage(err), false);
+    deviceSelectionCancelled = false;
   });
 });
 
@@ -1969,7 +2435,8 @@ flashBtn.addEventListener("click", () => {
 
 statusPanelBtn.addEventListener("click", (event) => {
   event.stopPropagation();
-  setStatusPanelOpen(statusPanelModal.hidden);
+  if (statusPanelModal.hidden) openStatusPanel();
+  else closeStatusPanel();
 });
 
 statusPanelCloseBtn.addEventListener("click", (event) => {
@@ -1978,6 +2445,14 @@ statusPanelCloseBtn.addEventListener("click", (event) => {
 });
 
 document.addEventListener("click", (event) => {
+  if (disconnectConfirmModal && !disconnectConfirmModal.hidden) {
+    if (event.target === disconnectConfirmModal) closeDisconnectConfirm(false);
+    return;
+  }
+  if (devicePickerModal && !devicePickerModal.hidden) {
+    if (event.target === devicePickerModal) cancelDeviceSelection();
+    return;
+  }
   if (!statusPanelModal || statusPanelModal.hidden) return;
   if (statusPanelModal.contains(event.target)) return;
   if (statusActions && statusActions.contains(event.target)) return;
@@ -1985,18 +2460,25 @@ document.addEventListener("click", (event) => {
 });
 
 window.addEventListener("keydown", (event) => {
-  if (event.key === "Escape" && statusPanelModal && !statusPanelModal.hidden) closeStatusPanel();
+  if (event.key !== "Escape") return;
+  if (disconnectConfirmModal && !disconnectConfirmModal.hidden) {
+    closeDisconnectConfirm(false);
+    return;
+  }
+  if (devicePickerModal && !devicePickerModal.hidden) {
+    cancelDeviceSelection();
+    return;
+  }
+  if (statusPanelModal && !statusPanelModal.hidden) closeStatusPanel();
 });
 
 testBtn.addEventListener("click", async () => {
   await window.codePet.testState(testState.value);
 });
 
-cancelDeviceBtn.addEventListener("click", async () => {
-  await window.codePet.chooseBluetoothDevice("");
-  hideDevicePicker();
-  setConnection("connection.cancelled", false);
-});
+cancelDeviceBtn.addEventListener("click", cancelDeviceSelection);
+disconnectConfirmCancelBtn.addEventListener("click", () => closeDisconnectConfirm(false));
+disconnectConfirmConfirmBtn.addEventListener("click", () => closeDisconnectConfirm(true));
 
 for (const option of themeOptions) {
   option.addEventListener("click", () => applyTheme(option.dataset.themeOption));
@@ -2009,12 +2491,16 @@ languageSelect.addEventListener("change", () => {
 window.addEventListener("code-pet:language-change", () => {
   renderConnection();
   renderDevicePicker(lastBluetoothDevices);
+  renderDisconnectConfirm();
   if (firmwareModalOpen) {
     renderFirmwareTargets();
     renderFirmwarePorts();
   }
   if (activePetPickerId) renderPetPickerModal();
   renderSnapshot(latestSnapshot);
+  if (stateCharacteristic) {
+    sendCurrent().catch((err) => setConnection("connection.sendFailed", false, { message: err.message }));
+  }
 });
 
 for (const tab of petPickerTabs) {
@@ -2146,3 +2632,4 @@ window.codePet.getSnapshot()
 window.codePet.getBridgeInfo()
   .then(renderBridgeInfo)
   .catch(() => renderBridgeInfo());
+scheduleAutoConnect(600);

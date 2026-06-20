@@ -34,6 +34,8 @@ const VALID_STATES = new Set([
   "sleeping",
 ]);
 
+const DEVICE_OUTPUT_MAX_CHARS = 120;
+
 function clampText(value, max) {
   if (typeof value !== "string") return "";
   const clean = value.replace(/\s+/g, " ").trim();
@@ -61,6 +63,8 @@ function toDevicePacket(snapshot) {
 
   const title = clampText(data.title || data.cwdBasename || "", 32);
   if (title) packet.m = title;
+  const output = clampText(data.output || "", DEVICE_OUTPUT_MAX_CHARS);
+  if (output) packet.o = output;
 
   return packet;
 }
