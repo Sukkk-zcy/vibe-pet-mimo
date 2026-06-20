@@ -34,7 +34,7 @@ Requirements:
 
 - Node.js 18 or newer.
 - npm.
-- PlatformIO, only if you are building or flashing firmware.
+- PlatformIO, only if you are building firmware from source.
 - Supported BLE/Wi-Fi hardware, only if you are testing hardware sync.
 
 Install dependencies:
@@ -129,12 +129,22 @@ plus deb for Linux. Installers are unsigned; release distribution may still
 require platform-specific signing or notarization. macOS installers must be
 built on macOS.
 
-## Firmware Build and Upload
+## Firmware Build and App Flashing
 
-Display firmware for ESP-AI display boards, M5Stack, LILYGO, Heltec, and
-ESP8266 OLED boards lives in `src/firmware/esp-display-code-pet`:
+The desktop app does not run PlatformIO when users flash firmware. For app
+flashing, put a flashable `main.bin` in the matching hardware folder, for
+example `src/firmware/m5stack-core2-code-pet/main.bin`. ESP targets are flashed
+with the bundled JavaScript esptool path. Non-ESP targets such as Wio Terminal
+use Arduino CLI when available.
+
+The commands below are for contributors who are building or directly uploading
+firmware while developing.
+
+ESP-AI Mini Ext TFT has its own project, while the other shared display
+firmware profiles live in `src/firmware/esp-display-code-pet`:
 
 ```bash
+pio run -d src/firmware/esp-ai-mini-ext-tft-code-pet -t upload
 pio run -d src/firmware/esp-display-code-pet -e esp_ai_common_3_tft -t upload
 pio run -d src/firmware/esp-display-code-pet -e esp_ai_diy_esp32s3_oled -t upload
 pio run -d src/firmware/esp-display-code-pet -e m5stack_core2 -t upload
@@ -183,8 +193,9 @@ Also test the area you changed:
 - Hook or agent changes: verify the target agent reports expected state changes.
 - Protocol changes: verify the bridge still accepts old and new expected payloads
   where compatibility is intended.
-- Firmware changes: build with PlatformIO for the changed environment, and flash
-  a real device when possible.
+- Firmware changes: build with PlatformIO for the changed environment, place the
+  generated app-flashable image as `main.bin` for app testing, and flash a real
+  device when possible.
 - Packaging changes: run the relevant `npm run package:*`, `npm run build:*`, or
   `npm run installer:*` command for the target platform when feasible.
 

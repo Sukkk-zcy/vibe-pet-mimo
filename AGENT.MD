@@ -16,6 +16,8 @@ src/hooks/agent-hook.js      多 agent 通用 hook 脚本
 src/scripts/install-hooks.js hook 安装与卸载
 src/firmware/wio-terminal-code-pet/
                              Wio Terminal BLE 显示端
+src/firmware/esp-ai-mini-ext-tft-code-pet/
+                             ESP-AI Mini Ext BLE TFT 显示端
 src/firmware/esp-ai-mini-ext-status/
                              ESP-AI Mini Ext BLE 状态灯端
 src/firmware/esp-display-code-pet/
@@ -48,7 +50,7 @@ scripts\install.cmd
 
 安装脚本会检查 Node.js 版本、安装 npm 依赖，并同步 hooks/plugins。可加 `--start` 安装后启动应用，或加 `--dev` 进入热更新开发模式。
 
-2. 烧录 Wio Terminal 固件：
+2. 开发时烧录 Wio Terminal 固件：
 
 ```bash
 cd src/firmware/wio-terminal-code-pet
@@ -126,7 +128,7 @@ npm run package:all
 如果连接时出现 `User cancelled the requestDevice() chooser`：
 
 - 先完全退出当前 Vibe Pet 窗口，再重新运行 `npm start`，避免旧桌面进程仍在使用旧代码。
-- 确认 Wio Terminal 或 ESP-AI Mini Ext 已上电，并正在广播 `VibePet-Wio` / `VibePet-ESP-AI-Mini`。
+- 确认 Wio Terminal 或 ESP-AI Mini Ext 已上电，并正在广播 `VibePet-Wio` / `VibePet-ESP-AI-Mini-TFT` / `VibePet-ESP-AI-Mini`。
 - 桌面桥会持续扫描附近 BLE 设备，名字匹配 Vibe Pet 的设备会标记为「推荐」。如果选择了其他 BLE 设备，通常会提示它没有 Vibe Pet BLE 服务。
 
 ## 设备端
@@ -137,7 +139,7 @@ Wio Terminal 是主显示端，作为 BLE 外设广播 `VibePet-Wio`，接收状
 
 ### ESP-AI Mini Ext
 
-[ESP-AI Mini Ext](https://espai.fun/open/pcb/mini-ext/1.0.0/) 是基于 ESP32-S3 的 AI 开发套件。Vibe Pet 固件使用同一 BLE 协议，广播 `VibePet-ESP-AI-Mini`，用板载 WS2812 显示状态颜色，并通过 GPIO8 读取电池电压。
+[ESP-AI Mini Ext](https://espai.fun/open/pcb/mini-ext/1.0.0/) 是基于 ESP32-S3 的 AI 开发套件。TFT 版固件广播 `VibePet-ESP-AI-Mini-TFT`，在屏幕上绘制桌宠，并用板载 WS2812 显示状态颜色；状态灯版固件广播 `VibePet-ESP-AI-Mini`，通过 GPIO8 读取电池电压。
 
 固定引脚：
 
@@ -146,13 +148,25 @@ Wio Terminal 是主显示端，作为 BLE 外设广播 `VibePet-Wio`，接收状
 | WS2812 | 18 |
 | KEY | 10 |
 | BAT_ADC | 8 |
+| TFT_MOSI | 42 |
+| TFT_SCLK | 39 |
+| TFT_CS | 13 |
+| TFT_DC | 7 |
+| TFT_BL | 3，低电平点亮 |
+
+2.4 寸 TFT 按官方配置使用 `ST7789_2_DRIVER`，TFT_eSPI `TFT_WIDTH=240`、`TFT_HEIGHT=320`，逻辑屏幕 `SCREEN_WIDTH=320`、`SCREEN_HEIGHT=240`。背光由 `backlight_control.h/.cpp` 管理，启动时调用 `initBacklight()` 和 `setBacklightOn()`。
 
 烧录：
 
 ```bash
+cd src/firmware/esp-ai-mini-ext-tft-code-pet
+pio run -t upload
+
 cd src/firmware/esp-ai-mini-ext-status
 pio run -t upload
 ```
+
+桌面端应用内烧录不调用 PlatformIO。每个硬件目录下放置可直接烧录的 `main.bin` 后，ESP 目标会通过内置 JS esptool 从 `0x0` 写入该文件；因此 ESP32/ESP8266 需要 bootloader、partition 和 app 分段时，`main.bin` 应该是合并后的镜像。Wio Terminal 这类非 ESP 目标走 Arduino CLI 兜底。
 
 ### ESP32 / ESP8266 带屏设备
 
@@ -160,7 +174,7 @@ pio run -t upload
 
 ESP-AI Common 3.0.0 使用 [官方开发板资料](https://espai.fun/open/pcb/common/3.0.0/) 中的 TFT/状态灯能力。ESP-AI DIY ESP32S3 使用 [DIY 硬件接线](https://espai.fun/guide/1e7b8i8e/) 中的开放平台扩展引脚：OLED `SCL=38`、`SDA=39`，TFT `MOSI=39`、`SCLK=38`、`CS=9`、`DC=13`，WS2812 状态灯 `IO46`。
 
-已内置 PlatformIO 环境：
+开发用 PlatformIO 环境：
 
 | 环境 | 设备 |
 | --- | --- |

@@ -15,6 +15,7 @@ const { createServer } = require("../host");
 const { getPetdexPets } = require("../host/petdex");
 const { StateHub } = require("../host/state-hub");
 const { DEVICE_NAME_PREFIXES, SERVICE_UUID } = require("../host/protocol");
+const { flashEspMainBin, listSerialPorts: listEspSerialPorts } = require("./esp-flasher");
 const { setupAutoUpdater } = require("./updater");
 
 const DEFAULT_PORT = 17384;
@@ -59,90 +60,127 @@ const WINDOW_THEME_COLORS = {
 };
 const FIRMWARE_ROOT = path.join(PROJECT_ROOT, "src", "firmware");
 const firmwareProject = (name) => path.join(FIRMWARE_ROOT, name);
+const MAIN_BIN_NAME = "main.bin";
 const FIRMWARE_TARGETS = {
   wio_terminal: {
     id: "wio_terminal",
     name: "Wio Terminal",
     projectDir: firmwareProject("wio-terminal-code-pet"),
-    env: "wio_terminal",
+    flasher: "arduino",
+    fqbn: "Seeeduino:samd:seeed_wio_terminal",
+    firmwareFile: MAIN_BIN_NAME,
+  },
+  esp_ai_mini_ext_tft: {
+    id: "esp_ai_mini_ext_tft",
+    name: "ESP-AI Mini Ext TFT",
+    projectDir: firmwareProject("esp-ai-mini-ext-tft-code-pet"),
+    flasher: "esp",
+    firmwareFile: MAIN_BIN_NAME,
+    flashAddress: 0x0,
   },
   esp32s3: {
     id: "esp32s3",
-    name: "ESP-AI Mini Ext",
+    name: "ESP-AI Mini Ext Status LED",
     projectDir: firmwareProject("esp-ai-mini-ext-status"),
-    env: "esp_ai_mini_ext_status",
+    flasher: "esp",
+    firmwareFile: MAIN_BIN_NAME,
+    flashAddress: 0x0,
   },
   esp_ai_common_3_tft: {
     id: "esp_ai_common_3_tft",
     name: "ESP-AI Common 3.0.0 TFT",
     projectDir: firmwareProject("esp-ai-common-3-tft-code-pet"),
-    env: "code_pet",
+    flasher: "esp",
+    firmwareFile: MAIN_BIN_NAME,
+    flashAddress: 0x0,
   },
   esp_ai_diy_esp32s3_oled: {
     id: "esp_ai_diy_esp32s3_oled",
     name: "ESP-AI DIY ESP32S3 OLED",
     projectDir: firmwareProject("esp-ai-diy-esp32s3-oled-code-pet"),
-    env: "code_pet",
+    flasher: "esp",
+    firmwareFile: MAIN_BIN_NAME,
+    flashAddress: 0x0,
   },
   m5stack_core2: {
     id: "m5stack_core2",
     name: "M5Stack Core2",
     projectDir: firmwareProject("m5stack-core2-code-pet"),
-    env: "code_pet",
+    flasher: "esp",
+    firmwareFile: MAIN_BIN_NAME,
+    flashAddress: 0x0,
   },
   m5stack_cores3: {
     id: "m5stack_cores3",
     name: "M5Stack CoreS3",
     projectDir: firmwareProject("m5stack-cores3-code-pet"),
-    env: "code_pet",
+    flasher: "esp",
+    firmwareFile: MAIN_BIN_NAME,
+    flashAddress: 0x0,
   },
   m5stickc_plus2: {
     id: "m5stickc_plus2",
     name: "M5StickC Plus2",
     projectDir: firmwareProject("m5stickc-plus2-code-pet"),
-    env: "code_pet",
+    flasher: "esp",
+    firmwareFile: MAIN_BIN_NAME,
+    flashAddress: 0x0,
   },
   m5stack_cardputer: {
     id: "m5stack_cardputer",
     name: "M5Stack Cardputer",
     projectDir: firmwareProject("m5stack-cardputer-code-pet"),
-    env: "code_pet",
+    flasher: "esp",
+    firmwareFile: MAIN_BIN_NAME,
+    flashAddress: 0x0,
   },
   m5stack_atoms3: {
     id: "m5stack_atoms3",
     name: "M5Stack AtomS3",
     projectDir: firmwareProject("m5stack-atoms3-code-pet"),
-    env: "code_pet",
+    flasher: "esp",
+    firmwareFile: MAIN_BIN_NAME,
+    flashAddress: 0x0,
   },
   lilygo_t_display: {
     id: "lilygo_t_display",
     name: "LILYGO T-Display ESP32",
     projectDir: firmwareProject("lilygo-t-display-code-pet"),
-    env: "code_pet",
+    flasher: "esp",
+    firmwareFile: MAIN_BIN_NAME,
+    flashAddress: 0x0,
   },
   lilygo_t_display_s3: {
     id: "lilygo_t_display_s3",
     name: "LILYGO T-Display S3",
     projectDir: firmwareProject("lilygo-t-display-s3-code-pet"),
-    env: "code_pet",
+    flasher: "esp",
+    firmwareFile: MAIN_BIN_NAME,
+    flashAddress: 0x0,
   },
   heltec_wifi_kit_32: {
     id: "heltec_wifi_kit_32",
     name: "Heltec WiFi Kit 32",
     projectDir: firmwareProject("heltec-wifi-kit-32-code-pet"),
-    env: "code_pet",
+    flasher: "esp",
+    firmwareFile: MAIN_BIN_NAME,
+    flashAddress: 0x0,
   },
   heltec_wifi_kit_8: {
     id: "heltec_wifi_kit_8",
     name: "Heltec WiFi Kit 8",
     projectDir: firmwareProject("heltec-wifi-kit-8-code-pet"),
-    env: "code_pet",
+    flasher: "esp",
+    firmwareFile: MAIN_BIN_NAME,
+    flashAddress: 0x0,
   },
   wemos_d1_mini_oled: {
     id: "wemos_d1_mini_oled",
     name: "WEMOS D1 mini + OLED Shield",
     projectDir: firmwareProject("wemos-d1-mini-oled-code-pet"),
-    env: "code_pet",
+    flasher: "esp",
+    firmwareFile: MAIN_BIN_NAME,
+    flashAddress: 0x0,
   },
 };
 
@@ -168,7 +206,7 @@ let bridgeInfo = {
   serviceUuid: SERVICE_UUID,
 };
 let bluetoothSelection = null;
-let firmwareFlashProcess = null;
+let firmwareFlashTask = null;
 let firmwareFlashCancelled = false;
 let desktopPetWindows = new Map();
 let desktopPetPayloads = new Map();
@@ -946,9 +984,7 @@ function closeDesktopPetWindows() {
 }
 
 function cliEnv() {
-  const home = os.homedir();
   const additions = [
-    path.join(home, ".platformio", "penv", "bin"),
     "/opt/homebrew/bin",
     "/usr/local/bin",
     "/usr/bin",
@@ -973,16 +1009,18 @@ function commandExists(command, env = cliEnv()) {
   }
 }
 
-function platformioCommand() {
+function arduinoCliCommand() {
   const env = cliEnv();
-  if (commandExists("pio", env)) return "pio";
-  if (commandExists("platformio", env)) return "platformio";
-  const bundled = path.join(os.homedir(), ".platformio", "penv", "bin", process.platform === "win32" ? "pio.exe" : "pio");
-  if (fs.existsSync(bundled)) return bundled;
+  if (commandExists("arduino-cli", env)) return "arduino-cli";
   return "";
 }
 
-function listSerialPorts() {
+async function listSerialPorts() {
+  try {
+    const ports = await listEspSerialPorts();
+    if (ports.length) return ports.sort((a, b) => a.path.localeCompare(b.path));
+  } catch {}
+
   const ports = [];
   const push = (port, label = "") => {
     if (!port || ports.some((item) => item.path === port)) return;
@@ -1023,34 +1061,108 @@ function listSerialPorts() {
   return ports;
 }
 
+function firmwareBinPath(target) {
+  return path.join(target.projectDir, target.firmwareFile || MAIN_BIN_NAME);
+}
+
 function firmwareTargetList() {
   return Object.values(FIRMWARE_TARGETS).map((target) => ({
     id: target.id,
     name: target.name,
-    env: target.env,
-    available: fs.existsSync(path.join(target.projectDir, "platformio.ini")),
+    flasher: target.flasher,
+    firmwareFile: target.firmwareFile || MAIN_BIN_NAME,
+    available: fs.existsSync(firmwareBinPath(target)),
   }));
 }
 
 function startFirmwareFlash(options = {}) {
-  if (firmwareFlashProcess) {
+  if (firmwareFlashTask) {
     throw new Error("A firmware flash task is already running.");
   }
 
   const target = FIRMWARE_TARGETS[options.targetId || ""];
   if (!target) throw new Error("Unknown firmware target.");
-  if (!fs.existsSync(path.join(target.projectDir, "platformio.ini"))) {
-    throw new Error(`Firmware project not found: ${target.projectDir}`);
+  const firmwarePath = firmwareBinPath(target);
+  if (!fs.existsSync(firmwarePath)) {
+    throw new Error(`main.bin not found for ${target.name}: ${firmwarePath}`);
   }
-
-  const command = platformioCommand();
-  if (!command) {
-    throw new Error("PlatformIO CLI not found. Install PlatformIO and make sure pio is available.");
-  }
-
   const port = String(options.port || "").trim();
-  const args = ["run", "-d", target.projectDir, "-e", target.env, "-t", "upload"];
-  if (port) args.push("--upload-port", port);
+  if (!port) throw new Error("Serial port is required.");
+
+  if (target.flasher === "esp") {
+    return startEspFirmwareFlash(target, port, firmwarePath);
+  }
+  if (target.flasher === "arduino") {
+    return startArduinoFirmwareFlash(target, port, firmwarePath);
+  }
+
+  throw new Error(`Unsupported firmware flasher: ${target.flasher || "unknown"}`);
+}
+
+function startEspFirmwareFlash(target, port, firmwarePath) {
+  let cancelled = false;
+  const address = Number.isFinite(target.flashAddress) ? target.flashAddress : 0x0;
+  const command = `esptool-js --port ${port} write_flash 0x${address.toString(16)} ${firmwarePath}`;
+
+  broadcastFirmwareFlash({
+    type: "start",
+    targetId: target.id,
+    targetName: target.name,
+    port,
+    command,
+  });
+
+  firmwareFlashCancelled = false;
+  firmwareFlashTask = {
+    cancel() {
+      cancelled = true;
+    },
+  };
+
+  flashEspMainBin({
+    port,
+    firmwarePath,
+    flashAddress: address,
+    onLog(text) {
+      if (text) broadcastFirmwareFlash({ type: "log", text });
+    },
+    shouldCancel() {
+      return cancelled || firmwareFlashCancelled;
+    },
+  }).then(() => {
+    broadcastFirmwareFlash({
+      type: "done",
+      message: "Firmware flashed.",
+    });
+  }).catch((err) => {
+    const message = err && err.message ? err.message : String(err || "");
+    if (cancelled || firmwareFlashCancelled || /cancelled/i.test(message)) {
+      broadcastFirmwareFlash({
+        type: "cancelled",
+        message: "Firmware flash cancelled.",
+      });
+      return;
+    }
+    broadcastFirmwareFlash({
+      type: "error",
+      message,
+    });
+  }).finally(() => {
+    firmwareFlashTask = null;
+    firmwareFlashCancelled = false;
+  });
+
+  return { ok: true };
+}
+
+function startArduinoFirmwareFlash(target, port, firmwarePath) {
+  const command = arduinoCliCommand();
+  if (!command) {
+    throw new Error("arduino-cli not found. Install Arduino CLI to flash this non-ESP target.");
+  }
+  if (!target.fqbn) throw new Error(`Arduino FQBN is not configured for ${target.name}.`);
+
+  const args = ["upload", "-p", port, "-b", target.fqbn, "-i", firmwarePath];
 
   broadcastFirmwareFlash({
     type: "start",
@@ -1061,25 +1173,30 @@ function startFirmwareFlash(options = {}) {
   });
 
   firmwareFlashCancelled = false;
-  firmwareFlashProcess = spawn(command, args, {
+  const child = spawn(command, args, {
     cwd: PROJECT_ROOT,
     env: cliEnv(),
     windowsHide: true,
   });
+  firmwareFlashTask = {
+    cancel() {
+      child.kill("SIGTERM");
+    },
+  };
 
   const writeLog = (chunk) => {
     const text = Buffer.isBuffer(chunk) ? chunk.toString("utf8") : String(chunk || "");
     if (text) broadcastFirmwareFlash({ type: "log", text });
   };
 
-  firmwareFlashProcess.stdout.on("data", writeLog);
-  firmwareFlashProcess.stderr.on("data", writeLog);
-  firmwareFlashProcess.on("error", (err) => {
-    firmwareFlashProcess = null;
+  child.stdout.on("data", writeLog);
+  child.stderr.on("data", writeLog);
+  child.on("error", (err) => {
+    firmwareFlashTask = null;
     broadcastFirmwareFlash({ type: "error", message: err.message });
   });
-  firmwareFlashProcess.on("close", (code, signal) => {
-    firmwareFlashProcess = null;
+  child.on("close", (code, signal) => {
+    firmwareFlashTask = null;
     if (firmwareFlashCancelled) {
       firmwareFlashCancelled = false;
       broadcastFirmwareFlash({
@@ -1102,9 +1219,9 @@ function startFirmwareFlash(options = {}) {
 }
 
 function cancelFirmwareFlash() {
-  if (!firmwareFlashProcess) return { ok: true, running: false };
+  if (!firmwareFlashTask) return { ok: true, running: false };
   firmwareFlashCancelled = true;
-  firmwareFlashProcess.kill("SIGTERM");
+  firmwareFlashTask.cancel();
   return { ok: true, running: true };
 }
 

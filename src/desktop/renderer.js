@@ -1763,8 +1763,12 @@ function renderFirmwareTargets() {
     option.disabled = target.available === false;
     firmwareTarget.append(option);
   }
-  if (selected && firmwareTargets.some((target) => target.id === selected)) {
+  const selectedTarget = firmwareTargets.find((target) => target.id === selected && target.available !== false);
+  const firstAvailableTarget = firmwareTargets.find((target) => target.available !== false);
+  if (selectedTarget) {
     firmwareTarget.value = selected;
+  } else if (firstAvailableTarget) {
+    firmwareTarget.value = firstAvailableTarget.id;
   }
 }
 
@@ -1796,7 +1800,9 @@ function renderFirmwarePorts() {
 
 function setFirmwareBusy(running) {
   firmwareFlashing = running;
-  firmwareStartBtn.disabled = running || !firmwarePorts.length || !firmwareTargets.some((target) => target.available !== false);
+  const selectedTarget = firmwareTargets.find((target) => target.id === firmwareTarget.value);
+  const canFlashSelectedTarget = selectedTarget && selectedTarget.available !== false;
+  firmwareStartBtn.disabled = running || !firmwarePorts.length || !canFlashSelectedTarget;
   firmwareCancelBtn.disabled = !running;
   firmwareRefreshPortsBtn.disabled = running;
   firmwareTarget.disabled = running;
@@ -1862,7 +1868,7 @@ async function startFirmwareFlash() {
   } catch (err) {
     setFirmwareBusy(false);
     const message = err && err.message ? err.message : String(err || "");
-    const key = /PlatformIO|pio/i.test(message) ? "firmware.platformioMissing" : "firmware.failed";
+    const key = /arduino-cli|esptool|serialport/i.test(message) ? "firmware.flasherMissing" : "firmware.failed";
     setFirmwareStatus(key, { message }, "error");
     appendFirmwareLog(`${message}\n`);
   }
@@ -2080,6 +2086,10 @@ firmwareRefreshPortsBtn.addEventListener("click", () => {
   refreshFirmwarePorts().catch((err) => {
     setFirmwareStatus("firmware.failed", { message: err.message || String(err) }, "error");
   });
+});
+
+firmwareTarget.addEventListener("change", () => {
+  setFirmwareBusy(firmwareFlashing);
 });
 
 firmwareStartBtn.addEventListener("click", () => {

@@ -5,6 +5,9 @@
 #include <M5Unified.h>
 #elif defined(CODE_PET_DISPLAY_TFT_ESPI)
 #include <TFT_eSPI.h>
+#if defined(CODE_PET_USE_BACKLIGHT_CONTROL)
+#include "backlight_control.h"
+#endif
 #elif defined(CODE_PET_DISPLAY_OLED)
 #include <Wire.h>
 #include <Adafruit_GFX.h>
@@ -56,6 +59,9 @@
 #ifndef CP_STATUS_PIXEL_BRIGHTNESS
 #define CP_STATUS_PIXEL_BRIGHTNESS 56
 #endif
+#ifndef TFT_BACKLIGHT_ON
+#define TFT_BACKLIGHT_ON HIGH
+#endif
 
 #if defined(CODE_PET_STATUS_PIXEL)
 Adafruit_NeoPixel statusPixel(CP_STATUS_PIXEL_COUNT, CP_STATUS_PIXEL_PIN, NEO_GRB + NEO_KHZ800);
@@ -83,6 +89,18 @@ uint8_t frameIndex = 0;
 unsigned long lastFrameAt = 0;
 unsigned long lastPollAt = 0;
 unsigned long lastWifiAttemptAt = 0;
+
+static void noteDisplayActivity() {
+#if defined(CODE_PET_USE_BACKLIGHT_CONTROL)
+  resetBacklightTimer();
+#endif
+}
+
+static void updateDisplayPower() {
+#if defined(CODE_PET_USE_BACKLIGHT_CONTROL)
+  updateBacklight();
+#endif
+}
 
 static uint16_t rgb565(uint8_t r, uint8_t g, uint8_t b) {
   return ((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3);
@@ -184,7 +202,10 @@ static int16_t screenH() { return tft.height(); }
 static void displayBegin() {
   tft.init();
   tft.setRotation(CP_TFT_ROTATION);
-#if defined(TFT_BL) && TFT_BL >= 0
+#if defined(CODE_PET_USE_BACKLIGHT_CONTROL)
+  initBacklight();
+  setBacklightOn();
+#elif defined(TFT_BL) && TFT_BL >= 0
   pinMode(TFT_BL, OUTPUT);
   digitalWrite(TFT_BL, TFT_BACKLIGHT_ON);
 #endif
@@ -406,6 +427,7 @@ static void applyPacket(JsonVariantConst src) {
 }
 
 static void applyPayload(const String &payload) {
+  noteDisplayActivity();
   JsonDocument doc;
   DeserializationError error = deserializeJson(doc, payload);
   if (error) {
@@ -454,12 +476,14 @@ class ServerCallbacks : public BLEServerCallbacks {
   void onConnect(BLEServer *server) override {
     (void)server;
     bleConnected = true;
+    noteDisplayActivity();
     markDirty();
   }
 
   void onDisconnect(BLEServer *server) override {
     (void)server;
     bleConnected = false;
+    noteDisplayActivity();
     markDirty();
     restartAdvertising();
   }
@@ -543,6 +567,7 @@ void loop() {
 #if defined(CODE_PET_DISPLAY_M5UNIFIED)
   M5.update();
 #endif
+  updateDisplayPower();
 
   if (pendingPayload) {
     pendingPayload = false;
