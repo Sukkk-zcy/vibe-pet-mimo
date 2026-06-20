@@ -140,19 +140,20 @@ npm run package:win
 npm run package:all
 ```
 
-Installer output goes to `dist/installers/`. To build installers for all target platforms:
+Installer output goes to `dist/installers/`. To build an installer for the current platform:
 
 ```bash
 npm run build
 ```
 
-Platform-specific installer commands are also available:
+Platform-specific and all-target installer commands are also available:
 
 ```bash
 npm run build:current
 npm run build:mac
 npm run build:linux
 npm run build:win
+npm run build:all
 ```
 
 Pass an architecture when needed:

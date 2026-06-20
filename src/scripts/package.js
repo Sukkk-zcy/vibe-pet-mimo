@@ -10,6 +10,7 @@ const APP_NAME = "Vibe Pet";
 const DEFAULT_OUT = "dist";
 const ICON_BASE = path.join(ROOT, "src", "desktop", "assets", "app-icon");
 const ICON_SCRIPT = path.join(ROOT, "src", "scripts", "generate-icons.js");
+const CHECK_SCRIPT = path.join(ROOT, "src", "scripts", "check.js");
 const PLATFORM_ALIASES = {
   all: "all",
   current: process.platform,
@@ -102,7 +103,7 @@ Options:
   --platform <current|all|darwin|linux|win32>  Target platform. Default: current.
   --arch <current|all|x64|arm64|ia32|armv7l>  Target architecture. Default: current.
   --out <dir>                                 Output directory. Default: dist.
-  --skip-check                                Skip npm run check before packaging.
+  --skip-check                                Skip syntax checks before packaging.
 
 Examples:
   npm run package:current
@@ -125,17 +126,12 @@ function run(command, args, options = {}) {
   }
 }
 
-function npmCommand() {
-  return process.platform === "win32" ? "npm.cmd" : "npm";
-}
-
-function packagerCommand() {
-  const name = process.platform === "win32" ? "electron-packager.cmd" : "electron-packager";
-  return path.join(ROOT, "node_modules", ".bin", name);
+function packagerScript() {
+  return path.join(ROOT, "node_modules", "@electron", "packager", "bin", "electron-packager.mjs");
 }
 
 function ensureDependencies() {
-  const command = packagerCommand();
+  const command = packagerScript();
   if (fs.existsSync(command)) return command;
   throw new Error("electron-packager was not found. Run npm install first, or run the one-click installer.");
 }
@@ -185,11 +181,11 @@ function main() {
   }
 
   ensureIconAssets(options);
-  if (options.check) run(npmCommand(), ["run", "check"]);
+  if (options.check) run(process.execPath, [CHECK_SCRIPT]);
   const packager = ensureDependencies();
   const args = buildPackagerArgs(options);
   console.log(`Packaging ${APP_NAME} for platform=${options.platform}, arch=${options.arch}`);
-  run(packager, args);
+  run(process.execPath, [packager, ...args]);
   console.log(`Package output: ${options.out}`);
 }
 

@@ -12,6 +12,7 @@ const DEFAULT_OUT = "dist/installers";
 const CONFIG_FILE = path.join(ROOT, "electron-builder.json");
 const ICON_BASE = path.join(ROOT, "src", "desktop", "assets", "app-icon");
 const ICON_SCRIPT = path.join(ROOT, "src", "scripts", "generate-icons.js");
+const CHECK_SCRIPT = path.join(ROOT, "src", "scripts", "check.js");
 
 const PLATFORM_ALIASES = {
   all: "all",
@@ -145,7 +146,7 @@ Options:
   --target <target[,target]>                   Override installer target, such as nsis, dmg, AppImage, deb.
   --out <dir>                                  Output directory. Default: dist/installers.
   --publish <never|always|onTag|onTagOrDraft>  electron-builder publish mode. Default: never.
-  --skip-check                                 Skip npm run check before packaging.
+  --skip-check                                 Skip syntax checks before packaging.
 
 Default installer targets:
   darwin: dmg
@@ -154,6 +155,7 @@ Default installer targets:
 
 Examples:
   npm run build
+  npm run build:all
   npm run build:win -- --arch x64
   npm run build:mac -- --arch arm64
   npm run build:linux -- --target AppImage
@@ -175,17 +177,12 @@ function run(command, args, options = {}) {
   }
 }
 
-function npmCommand() {
-  return process.platform === "win32" ? "npm.cmd" : "npm";
-}
-
-function builderCommand() {
-  const name = process.platform === "win32" ? "electron-builder.cmd" : "electron-builder";
-  return path.join(ROOT, "node_modules", ".bin", name);
+function builderScript() {
+  return path.join(ROOT, "node_modules", "electron-builder", "cli.js");
 }
 
 function ensureDependencies() {
-  const command = builderCommand();
+  const command = builderScript();
   if (fs.existsSync(command)) return command;
   throw new Error("electron-builder was not found. Run npm install before building installers.");
 }
@@ -282,7 +279,7 @@ function main() {
   }
 
   ensureIconAssets(options);
-  if (options.check) run(npmCommand(), ["run", "check"]);
+  if (options.check) run(process.execPath, [CHECK_SCRIPT]);
 
   const builder = ensureDependencies();
   const builderConfig = materializeBuilderConfig(options);
@@ -291,7 +288,7 @@ function main() {
       const targets = targetsForPlatform(options, platform).join(", ");
       const arches = options.arch === "all" ? SUPPORTED_ARCHES[platform].join(", ") : options.arch;
       console.log(`Building ${APP_NAME} installer for platform=${platform}, arch=${arches}, target=${targets}`);
-      run(builder, buildArgs(options, platform, builderConfig.file));
+      run(process.execPath, [builder, ...buildArgs(options, platform, builderConfig.file)]);
     }
   } finally {
     builderConfig.dispose();

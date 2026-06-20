@@ -15,11 +15,12 @@
     "bridge:web": "node src/host/index.js",
     "bridge:web:dev": "node src/host/index.js --verbose",
     "setup": "node src/scripts/setup.js",
-    "build": "node src/scripts/package-installers.js --platform all --arch x64",
+    "build": "node src/scripts/package-installers.js --platform current",
     "build:current": "node src/scripts/package-installers.js --platform current",
     "build:mac": "node src/scripts/package-installers.js --platform darwin",
     "build:linux": "node src/scripts/package-installers.js --platform linux",
     "build:win": "node src/scripts/package-installers.js --platform win32",
+    "build:all": "node src/scripts/package-installers.js --platform all --arch x64",
     "package": "node src/scripts/package.js",
     "package:current": "node src/scripts/package.js --platform current",
     "package:mac": "node src/scripts/package.js --platform darwin",
@@ -34,7 +35,8 @@
     "installer:all": "node src/scripts/package-installers.js --platform all --arch x64",
     "install:hooks": "node src/scripts/install-hooks.js",
     "uninstall:hooks": "node src/scripts/install-hooks.js --uninstall",
-    "check": "node src/scripts/check.js"
+    "check": "node src/scripts/check.js",
+    "release": "node src/scripts/package-installers.js --platform current --publish always"
   },
   "keywords": [
     "desktop-pet",
