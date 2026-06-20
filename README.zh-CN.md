@@ -88,73 +88,15 @@ Vibe Pet 会默认尝试同步这些 AI 编程助手的 hooks 或插件配置：
 
 也欢迎把 Vibe Pet 适配到你自己的硬件上。BLE 和 Wi-Fi 硬件负载本身很轻量，新的屏幕、状态灯、徽章设备或自定义开发板都可以在不改桌面端核心逻辑的情况下接入。
 
-## 快速开始
+## 下载安装
 
-```bash
-npm install
-npm start
-```
+从 [Releases 页面](https://github.com/wangzongming/vibe-pet/releases) 下载适合你平台的安装包。
 
-`npm install`、`npm start` 和 `npm run dev` 会默认安装或同步 hooks。需要手动重装时可以运行：
+- macOS：下载 `.dmg` 或 `.zip` 构建。
+- Windows：下载 `.exe` 安装包。
+- Linux：下载 `.AppImage` 或 `.deb` 包。
 
-```bash
-npm run install:hooks
-```
-
-一键安装：
-
-```bash
-# macOS / Linux
-./scripts/install.sh
-
-# Windows PowerShell
-powershell -ExecutionPolicy Bypass -File scripts/install.ps1
-
-# Windows CMD
-scripts\install.cmd
-```
-
-加上 `--start` 会在安装后直接启动应用，加上 `--dev` 会进入热更新开发模式。
-
-启动后在桌面程序顶部连接设备。如果你只是想先看桌面宠物效果，不连接硬件也可以直接使用。
-
-开发时使用热更新：
-
-```bash
-npm run dev
-```
-
-## 打包
-
-打包脚本支持 macOS、Linux 和 Windows，产物会输出到 `dist/`。
-
-```bash
-npm run package:current
-npm run package:mac
-npm run package:linux
-npm run package:win
-npm run package:all
-```
-
-需要指定架构时：
-
-```bash
-npm run package:mac -- --arch arm64
-npm run package:linux -- --arch x64
-```
-
-当前产物是未签名的 Electron 应用包。正式分发时仍可能需要按平台处理签名、公证或安装器。
-
-ESP-AI 显示设备、M5Stack、LILYGO、Heltec 和 ESP8266 OLED 设备的显示固件位于 `src/firmware/esp-display-code-pet`：
-
-```bash
-pio run -d src/firmware/esp-display-code-pet -e esp_ai_common_3_tft -t upload
-pio run -d src/firmware/esp-display-code-pet -e esp_ai_diy_esp32s3_oled -t upload
-pio run -d src/firmware/esp-display-code-pet -e m5stack_core2 -t upload
-pio run -d src/firmware/esp-display-code-pet -e lilygo_t_display_s3 -t upload
-```
-
-ESP8266 OLED 设备需要在 `src/firmware/esp-display-code-pet/platformio.ini` 中填写 `CODE_PET_WIFI_SSID`、`CODE_PET_WIFI_PASSWORD` 和 `CODE_PET_BRIDGE_URL`，设备会通过 `/api/device-snapshot` 轮询桌面端状态。
+安装后启动 Vibe Pet，并在桌面程序中连接设备。如果你只是想先看桌面宠物效果，不连接硬件也可以直接使用。
 
 ## 技术文档
 
@@ -175,4 +117,4 @@ ESP8266 OLED 设备需要在 `src/firmware/esp-display-code-pet/platformio.ini` 
 
 ## 参与贡献
 
-欢迎提交想法、问题反馈、硬件适配、新的 AI 编程助手集成、翻译和 UI 优化。你可以先开 issue 讨论方案，也可以在已经有可运行实现时直接提交 PR。
+欢迎提交想法、问题反馈、硬件适配、新的 AI 编程助手集成、翻译和 UI 优化。如果你想贡献代码，请阅读 [CONTRIBUTING.md](CONTRIBUTING.md)，其中包含开发环境、打包、测试和 PR 流程说明。

@@ -15,6 +15,19 @@ clear changes, careful testing, and good protocol notes all matter.
 For larger changes, please open an issue or discussion first so the design and
 scope can be agreed before implementation.
 
+## Download an Installer
+
+If you only want to install a release build or compare your changes with a
+packaged version, download an installer from the
+[Releases page](https://github.com/wangzongming/vibe-pet/releases).
+
+- macOS: download the `.dmg` or `.zip` build.
+- Windows: download the `.exe` installer.
+- Linux: download the `.AppImage` or `.deb` package.
+
+After installation, launch Vibe Pet and connect your device from the desktop
+app. Hardware is optional if you only want to use the desktop pets.
+
 ## Development Setup
 
 Requirements:
@@ -61,6 +74,77 @@ hooks and plugins. To manage hooks manually:
 npm run install:hooks
 npm run uninstall:hooks
 ```
+
+## Packaging and Installers
+
+The packaging scripts support macOS, Linux, and Windows. App bundle output goes
+to `dist/`.
+
+```bash
+npm run package:current
+npm run package:mac
+npm run package:linux
+npm run package:win
+npm run package:all
+```
+
+Installer output goes to `dist/installers/`. To build an installer for the
+current platform:
+
+```bash
+npm run build
+```
+
+Platform-specific and all-target installer commands are also available:
+
+```bash
+npm run build:current
+npm run build:mac
+npm run build:linux
+npm run build:win
+npm run build:all
+```
+
+The equivalent installer aliases are:
+
+```bash
+npm run installer:current
+npm run installer:mac
+npm run installer:linux
+npm run installer:win
+npm run installer:all
+```
+
+Pass an architecture or target when needed:
+
+```bash
+npm run package:mac -- --arch arm64
+npm run package:linux -- --arch x64
+npm run build:win -- --arch x64
+npm run build:linux -- --target AppImage
+```
+
+Installer defaults are DMG plus zip for macOS, NSIS for Windows, and AppImage
+plus deb for Linux. Installers are unsigned; release distribution may still
+require platform-specific signing or notarization. macOS installers must be
+built on macOS.
+
+## Firmware Build and Upload
+
+Display firmware for ESP-AI display boards, M5Stack, LILYGO, Heltec, and
+ESP8266 OLED boards lives in `src/firmware/esp-display-code-pet`:
+
+```bash
+pio run -d src/firmware/esp-display-code-pet -e esp_ai_common_3_tft -t upload
+pio run -d src/firmware/esp-display-code-pet -e esp_ai_diy_esp32s3_oled -t upload
+pio run -d src/firmware/esp-display-code-pet -e m5stack_core2 -t upload
+pio run -d src/firmware/esp-display-code-pet -e lilygo_t_display_s3 -t upload
+```
+
+For ESP8266 OLED boards, set `CODE_PET_WIFI_SSID`,
+`CODE_PET_WIFI_PASSWORD`, and `CODE_PET_BRIDGE_URL` in
+`src/firmware/esp-display-code-pet/platformio.ini` so the device can poll
+`/api/device-snapshot`.
 
 ## Project Areas
 

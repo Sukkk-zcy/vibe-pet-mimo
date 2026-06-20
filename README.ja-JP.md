@@ -87,73 +87,15 @@ Vibe Pet は以下の AI エージェントの hooks またはプラグイン設
 
 Vibe Pet を自分のハードウェアに対応させることも歓迎します。BLE と Wi-Fi のハードウェア向けペイロードは小さく保っているため、新しい画面、ステータスライト、バッジ型デバイス、カスタムボードもデスクトップアプリの中核を変えずに追加できます。
 
-## クイックスタート
+## ダウンロードとインストール
 
-```bash
-npm install
-npm start
-```
+[Releases page](https://github.com/wangzongming/vibe-pet/releases) から、お使いのプラットフォーム向けのインストーラーをダウンロードしてください。
 
-`npm install`、`npm start`、`npm run dev` は hooks のインストールまたは同期をデフォルトで実行します。手動で再インストールする場合：
+- macOS: `.dmg` または `.zip` ビルドをダウンロードします。
+- Windows: `.exe` インストーラーをダウンロードします。
+- Linux: `.AppImage` または `.deb` パッケージをダウンロードします。
 
-```bash
-npm run install:hooks
-```
-
-ワンクリックインストール：
-
-```bash
-# macOS / Linux
-./scripts/install.sh
-
-# Windows PowerShell
-powershell -ExecutionPolicy Bypass -File scripts/install.ps1
-
-# Windows CMD
-scripts\install.cmd
-```
-
-`--start` を付けるとインストール後にアプリを起動します。`--dev` を付けるとホットリロード開発モードで起動します。
-
-起動後、デスクトップアプリからデバイスに接続します。ハードウェアを接続しなくても、デスクトップペットだけで利用できます。
-
-ホットリロード付きで開発する場合：
-
-```bash
-npm run dev
-```
-
-## パッケージング
-
-パッケージングスクリプトは macOS、Linux、Windows に対応しています。出力先は `dist/` です。
-
-```bash
-npm run package:current
-npm run package:mac
-npm run package:linux
-npm run package:win
-npm run package:all
-```
-
-必要に応じてアーキテクチャを指定できます。
-
-```bash
-npm run package:mac -- --arch arm64
-npm run package:linux -- --arch x64
-```
-
-生成されるのは未署名の Electron アプリバンドルです。配布時には各プラットフォームの署名、公証、インストーラー作成が別途必要になる場合があります。
-
-ESP-AI 表示ボード、M5Stack、LILYGO、Heltec、ESP8266 OLED 向けの表示ファームウェアは `src/firmware/esp-display-code-pet` にあります。
-
-```bash
-pio run -d src/firmware/esp-display-code-pet -e esp_ai_common_3_tft -t upload
-pio run -d src/firmware/esp-display-code-pet -e esp_ai_diy_esp32s3_oled -t upload
-pio run -d src/firmware/esp-display-code-pet -e m5stack_core2 -t upload
-pio run -d src/firmware/esp-display-code-pet -e lilygo_t_display_s3 -t upload
-```
-
-ESP8266 OLED デバイスでは、`src/firmware/esp-display-code-pet/platformio.ini` に `CODE_PET_WIFI_SSID`、`CODE_PET_WIFI_PASSWORD`、`CODE_PET_BRIDGE_URL` を設定してください。デバイスは `/api/device-snapshot` をポーリングしてデスクトップの状態を同期します。
+インストール後に Vibe Pet を起動し、デスクトップアプリからデバイスに接続します。ハードウェアを接続しなくても、デスクトップペットだけで利用できます。
 
 ## 技術ドキュメント
 
@@ -174,4 +116,4 @@ ESP8266 OLED デバイスでは、`src/firmware/esp-display-code-pet/platformio.
 
 ## コントリビューション
 
-アイデア、バグ報告、ハードウェア対応、新しい AI コーディングエージェント連携、翻訳、UI 改善を歓迎します。作りたいものがあれば issue で相談してください。動く実装がある場合は PR も歓迎です。
+アイデア、バグ報告、ハードウェア対応、新しい AI コーディングエージェント連携、翻訳、UI 改善を歓迎します。コードで貢献したい場合は、開発環境、パッケージング、テスト、PR 手順をまとめた [CONTRIBUTING.md](CONTRIBUTING.md) を読んでください。
