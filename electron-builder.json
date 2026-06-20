@@ -49,6 +49,7 @@
   "linux": {
     "category": "Development",
     "icon": "src/desktop/assets/app-icon.png",
+    "maintainer": "wangzongming <1746809408@qq.com>",
     "target": [
       "AppImage",
       "deb"
