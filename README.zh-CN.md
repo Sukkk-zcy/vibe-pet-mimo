@@ -61,6 +61,7 @@ Vibe Pet 会默认尝试同步这些 AI 编程助手的 hooks 或插件配置：
 | CodeBuddy | Hooks |
 | Kimi Code CLI | Hooks |
 | Qwen Code | Hooks |
+| MiMoCode | Plugin |
 | OpenClaw | Plugin |
 | opencode | Plugin |
 | Qoder | Hooks |
@@ -77,6 +78,8 @@ Vibe Pet 会默认尝试同步这些 AI 编程助手的 hooks 或插件配置：
 | [ESP-AI v4开发板](https://espai.fun/open/pcb/common/4.0.0/) | 基于 ESP32-S3 的 AI 开发套件 | BLE | Ing | TFT 目标；LVGL 角色渲染。 |
 | [M5Stack CoreS3](https://docs.m5stack.com/en/core/CoreS3) | ESP32-S3 彩色触摸屏 | BLE | Ing | M5Unified 的 ESP32-S3 目标。 |
 
+| [ESP32 + 2.8" TFT (WiFi)](src/firmware/esp32-tft-wifi/) | ESP32 + ST7789 显示屏，WiFi 轮询 | WiFi | Yes | 低成本 WiFi 显示方案，通过 WiFi 连接 VibePet 桥接服务。 |
+| [ESP32 + 2.8" TFT (BLE)](src/firmware/esp32-tft-ble/) | ESP32 + ST7789 显示屏，BLE | BLE | Yes | 低成本 BLE 显示方案，通过 BLE 直连 VibePet 桌面端。 |
 也欢迎把 Vibe Pet 适配到你自己的硬件上。BLE 和 Wi-Fi 硬件负载本身很轻量，新的屏幕、状态灯、徽章设备或自定义开发板都可以在不改桌面端核心逻辑的情况下接入。
 
 ## 下载安装

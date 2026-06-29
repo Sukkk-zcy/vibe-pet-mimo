@@ -60,6 +60,7 @@ Vibe Pet automatically tries to install or sync integrations for:
 | CodeBuddy | Hooks |
 | Kimi Code CLI | Hooks |
 | Qwen Code | Hooks |
+| MiMoCode | Plugin |
 | OpenClaw | Plugin |
 | opencode | Plugin |
 | Qoder | Hooks |
@@ -76,6 +77,8 @@ Vibe Pet automatically tries to install or sync integrations for:
 | [ESP-AI v4 Dev Board](https://espai.fun/open/pcb/common/4.0.0/) | ESP32-S3-based AI dev kit | BLE | Ing | TFT target; LVGL character rendering. |
 | [M5Stack CoreS3](https://docs.m5stack.com/en/core/CoreS3) | ESP32-S3 color touch display | BLE | Ing | M5Unified ESP32-S3 target. |
 
+| [ESP32 + 2.8" TFT (WiFi)](src/firmware/esp32-tft-wifi/) | ESP32 + ST7789 display, WiFi polling | WiFi | Yes | Budget WiFi-based display. Connects to the VibePet bridge service over WiFi. |
+| [ESP32 + 2.8" TFT (BLE)](src/firmware/esp32-tft-ble/) | ESP32 + ST7789 display, BLE | BLE | Yes | Budget BLE-based display. Connects directly to VibePet desktop app over BLE. |
 Want to bring Vibe Pet to your own device? The BLE and Wi-Fi hardware payloads are intentionally small, so new screens, status lights, badges, and custom boards can be added without changing the desktop app.
 
 ## Download and Install

@@ -1,0 +1,7 @@
+{
+  "name": "vibe-pet-mimocode-plugin",
+  "type": "module",
+  "main": "index.mjs",
+  "description": "VibePet integration plugin for MiMoCode",
+  "version": "1.0.0"
+}
