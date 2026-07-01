@@ -1,9 +1,19 @@
-# ESP32 + 2.8" TFT — Wi-Fi 版本
+# VibePet ESP32 — WiFi 直推版
 
-通过 WiFi 轮询 VibePet 桥接服务，在 ESP32 + ST7789 屏幕上实时显示 AI 编程助手的状态与动画。
+ESP32 + 2.8寸 TFT 屏幕，作为 HTTP 服务端接收 AI 编程助手的实时状态并显示。
 
-✨ **支持主机名解析** — 不再怕电脑 IP 变动！填写电脑名即可自动解析 IP。
-✨ **全新角色与全屏布局** — 可爱幽灵角色 × 三栏布局，充分利用屏幕空间。
+**不再依赖 VibePet 桌面端桥接！插件直接推送状态到 ESP32。**
+
+## 架构
+
+```
+MiMoCode CLI  ─→  mimocode-plugin  ─HTTP POST─→  ESP32 (HTTP Server)
+opencode CLI  ─→  opencode-plugin  ─HTTP POST─→  ESP32 (HTTP Server)
+                                                    │
+                                                    ▼
+                                               ST7789 屏幕
+                                              大字状态 + 输出
+```
 
 ## 硬件需求
 
@@ -12,12 +22,8 @@
 | 主控板 | ESP32-WROOM-32 | 4MB Flash |
 | 显示屏 | 2.8寸 ST7789 IPS | 320×240，SPI 接口 |
 | 按键 | 3个 | 左/确认/右（GPIO 25/26/27） |
-| 蜂鸣器 | 可选 | GPIO 13 |
-| 电池 | 可选 | ADC 检测 GPIO 34 |
 
 ## 引脚配置
-
-所有引脚定义在 `include/config.h` 中，**请根据你的硬件修改**：
 
 | 功能 | GPIO | 说明 |
 |------|------|------|
@@ -30,59 +36,78 @@
 | BTN_LEFT | 25 | 左键（上拉） |
 | BTN_OK | 26 | 确认键（上拉） |
 | BTN_RIGHT | 27 | 右键（上拉） |
-| BUZZER | 13 | 蜂鸣器 |
-| BATTERY | 34 | ADC 检测 |
 
-TFT 驱动参数同样在 `config.h` 和 `platformio.ini` 的 `build_flags` 中配置。
+所有引脚在 `include/config.h` 中配置，TFT 驱动参数在 `platformio.ini` 的 `build_flags` 中。
 
-## 软件依赖
+## 快速开始
 
-- [PlatformIO](https://platformio.org/)
-- 库（`platformio.ini` 自动安装）：
-  - `bodmer/TFT_eSPI@^2.5.43`
-  - `bblanchon/ArduinoJson@^7.0.4`
-
-## 编译与烧录
+### 1. 编译烧录
 
 ```bash
-# 编译
-pio run
-
-# 烧录
+cd VibePet-WiFi
 pio run -t upload
-
-# 查看串口日志
-pio device monitor -b 115200
 ```
 
-## 首次使用：WiFi 配置
+### 2. 配置 WiFi
 
-ESP32 启动后会自动检测是否已保存 WiFi 配置：
+ESP32 启动后会自动进入配置模式，开启热点 `VibePet-Setup`（密码 `12345678`）。
 
-1. **未配置** → 自动进入配置模式，开启热点 `VibePet-Setup`（密码 `12345678`）
-2. 手机/电脑连接此热点
-3. 浏览器访问 `192.168.4.1`
-4. 填写：
-   - **WiFi SSID / 密码** — 你的 2.4G WiFi
-   - **Bridge Host** — 推荐填写电脑的**主机名**（如 `DESKTOP-ABC`），而不是 IP！ESP32 会自动通过 mDNS/DNS 解析当前 IP
-     - 也可以填 IP 地址（如 `192.168.1.2`），但电脑重启 IP 变了就需要重新配置
-   - **Bridge Port** — 默认 `17384`
-5. 保存后 ESP32 自动重启连接
+1. 手机/电脑连接此热点
+2. 浏览器访问 `192.168.4.1`
+3. 填写你的 WiFi 名称和密码
+4. 保存后 ESP32 重启连接
 
-> 💡 **主机名解析原理**：ESP32 先用 mDNS 解析 `主机名.local`，失败后用 `WiFi.hostByName()` 通过路由器 DNS 解析，再失败则直接用原始值。每 10 次轮询自动重新解析一次，电脑 IP 变了也能自动跟上。
+### 3. 记下 ESP32 IP
 
-**已有配置但需要修改**：同时长按左右键 2 秒进入配置模式。
+连接成功后，屏幕会显示 ESP32 的 IP 地址（如 `192.168.31.6`）5 秒钟。
 
-## 配置项说明
+**以后随时按确认键切换到详情页查看 IP。**
 
-| 配置 | 默认值 | 位置 | 说明 |
-|------|--------|------|------|
-| `POLL_INTERVAL_MS` | 500 | `config.h` | 轮询间隔（毫秒） |
-| `DEFAULT_BRIDGE_HOST` | 192.168.1.2 | `config.h` | 默认桥接地址（可用主机名） |
-| `DEFAULT_BRIDGE_PORT` | 17384 | `config.h` | 默认桥接端口 |
-| `WIFI_AP_SSID` | VibePet-Setup | `config.h` | 配置模式热点名 |
-| `WIFI_AP_PASS` | 12345678 | `config.h` | 配置模式密码 |
-| TFT 引脚 | 见上表 | `platformio.ini` | `build_flags` 中定义 |
+### 4. 配置插件
+
+在电脑上修改插件中的 `ESP32_IP` 为上面记下的地址：
+
+**MiMoCode 插件** (`src/hooks/mimocode-plugin/index.mjs`)：
+```js
+const ESP32_IP = "192.168.31.6";
+```
+
+**opencode 插件** (`src/hooks/opencode-plugin/index.mjs`)：
+```js
+const ESP32_IP = "192.168.31.6";
+```
+
+也可以通过环境变量覆盖：
+```bash
+ESP32_HOST=192.168.31.6  # 插件自动读取
+```
+
+### 5. 加载插件
+
+通过 VibePet 桌面端加载对应插件即可。之后 AI 编程助手工作时的状态会实时推送到 ESP32。
+
+## API 接口
+
+ESP32 提供 HTTP API，插件直接 POST 状态数据：
+
+```
+POST http://<esp32-ip>/api/state
+Content-Type: application/json
+
+{
+  "agent": "MiMoCode",
+  "state": "thinking",
+  "event": "UserPromptSubmit",
+  "output": "分析用户请求中..."
+}
+```
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `agent` | string | Agent 名称（显示在顶栏） |
+| `state` | string | 状态：idle / thinking / working / building / juggling / attention / notification / error / sweeping / sleeping |
+| `event` | string | 可选，事件名 |
+| `output` | string | 可选，当前输出文字（显示在底部） |
 
 ## 按键操作
 
@@ -92,29 +117,24 @@ ESP32 启动后会自动检测是否已保存 WiFi 配置：
 | 确认 短按 | 回到主页 |
 | ← + → 长按 2 秒 | 进入 WiFi 配置模式 |
 
-## 桥接地址获取
+## 重新配置 WiFi
 
-1. 打开 VibePet 桌面端
-2. 查看 `~/.code-pet/runtime.json` 中的 `port` 字段
-3. 在配置页面填写该端口对应的桥接地址
+同时长按左右键 2 秒进入配置模式，ESP32 会重启热点。
 
 ## 文件结构
 
 ```
-src/firmware/esp32-tft-wifi/
-├── platformio.ini       # 平台配置 + TFT 引脚
+VibePet-WiFi/
+├── platformio.ini        # PlatformIO 配置 + TFT 引脚
 ├── include/
-│   ├── config.h         # 引脚、常量、默认值
-│   ├── state.h          # 状态数据结构
-│   ├── network.h        # 网络函数声明
-│   └── display.h        # 显示函数声明
+│   ├── config.h          # 引脚、常量定义
+│   ├── network.h         # 网络函数声明
+│   ├── state.h           # 状态数据结构
+│   └── display.h         # 显示函数声明
 ├── src/
-│   ├── main.cpp         # 主程序, FreeRTOS 任务
-│   ├── state.cpp        # JSON 解析, 状态管理
-│   ├── network.cpp      # WiFi, mDNS, WebServer, DNS, HTTP 轮询
-│   └── display.cpp      # TFT 渲染 (幽灵角色 + 全屏三栏布局)
-├── lib/
-│   └── README
-└── test/
-    └── README
+│   ├── main.cpp          # 主程序，FreeRTOS 任务
+│   ├── network.cpp       # WiFi + HTTP 服务端 (POST /api/state)
+│   ├── state.cpp         # JSON 解析、状态管理
+│   └── display.cpp       # TFT 渲染
+└── README.md
 ```

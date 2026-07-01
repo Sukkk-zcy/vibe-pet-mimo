@@ -4,14 +4,8 @@
 #include <Arduino.h>
 
 void networkInit();
-bool networkIsConnected();
-void networkPoll();
-void networkStartConfigPortal();
-void networkHandleClient();
-void networkLoadConfig();
-void networkSaveConfig(const char* ssid, const char* pass, const char* host, uint16_t port);
+void networkHandle();            // 每帧调用：处理 HTTP 请求 + 配置门户
+void networkStartConfigPortal(); // 进入配置模式
 String networkGetSSID();
-String networkGetHost();
-uint16_t networkGetPort();
 
 #endif

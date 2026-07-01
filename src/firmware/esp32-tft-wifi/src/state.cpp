@@ -56,7 +56,13 @@ static String normalizeState(const String& state) {
 bool stateParse(const char* json) {
     JsonDocument doc;
     DeserializationError error = deserializeJson(doc, json);
-    if (error) return false;
+    if (error) {
+        Serial.printf("stateParse FAIL: %s\n", error.c_str());
+        return false;
+    }
+
+    // 先存旧状态，变化时才打印
+    String oldState = pet.state;
 
     String state = STATE_IDLE;
     String agent = "MiMoCode";
@@ -122,6 +128,10 @@ bool stateParse(const char* json) {
 
     state = normalizeState(state);
 
+    // 每次轮询都打印一行（排查状态不更新用）
+    Serial.printf("> %-10s %-12s %s\n",
+        state.c_str(), agent.c_str(), output.substring(0, 30).c_str());
+
     if (pet.state != state || pet.agent != agent || pet.title != title ||
         pet.output != output || pet.personaName != personaName) {
         pet.state = state;
@@ -134,6 +144,12 @@ bool stateParse(const char* json) {
         pet.activeCount = activeCount;
         pet.receivedAt = millis();
         uiDirty = true;
+
+        // 只在状态变化时打印
+        if (pet.state != oldState || pet.agent != agent) {
+            Serial.printf("[VibePet] %s -> %s (%s)\n",
+                pet.agent.c_str(), pet.state.c_str(), pet.output.c_str());
+        }
     }
 
     return true;

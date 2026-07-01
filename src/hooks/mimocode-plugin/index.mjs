@@ -2,154 +2,115 @@ import { readFileSync } from "fs";
 import { homedir } from "os";
 import { join } from "path";
 
+// ═══════════════════════════════════════════════════════════
+//  MiMoCode → ESP32 VibePet Display 直推插件
+//
+//  用法：
+//    1. 烧录 ESP32 WiFi 版固件，记下屏幕显示的 IP
+//    2. 将下方 ESP32_IP 改为 ESP32 的 IP 地址
+//    3. 用 VibePet 桌面端加载此插件
+//
+//  状态映射：
+//    session.created        → idle
+//    session.deleted        → sleeping
+//    message.part.updated
+//      status=running       → thinking
+//      status=tool          → working
+//      status=error         → error
+//    session.idle           → attention
+//    permission.asked       → notification
+//    tool.execute.before    → working
+//    tool.execute.after     → thinking
+//    chat.message           → thinking
+// ═══════════════════════════════════════════════════════════
+
+const ESP32_IP = process.env.ESP32_HOST || "192.168.31.6";  // ← 改成你的 ESP32 IP
+const ESP32_PORT = process.env.ESP32_PORT || "80";
+const API_URL = `http://${ESP32_IP}:${ESP32_PORT}/api/state`;
+
 const AGENT_ID = "mimocode";
 const AGENT_NAME = "MiMoCode";
-const RUNTIME_PATH = join(homedir(), ".code-pet", "runtime.json");
-const PORTS = [17384, 17385, 17386, 17387, 17388];
-
-let cachedPort = null;
-let lastSessionId = "mimocode:default";
-let lastOutput = "";
-
-function readRuntimePort() {
-  try {
-    const data = JSON.parse(readFileSync(RUNTIME_PATH, "utf8"));
-    return Number.isInteger(Number(data.port)) ? Number(data.port) : null;
-  } catch {
-    return null;
-  }
-}
-
-function ports() {
-  const out = [];
-  const seen = new Set();
-  const add = (port) => {
-    if (Number.isInteger(port) && !seen.has(port)) {
-      seen.add(port);
-      out.push(port);
-    }
-  };
-  add(cachedPort);
-  add(readRuntimePort());
-  for (const port of PORTS) add(port);
-  return out;
-}
-
-function normalizeSessionId(value) {
-  const raw = typeof value === "string" && value ? value : "default";
-  return raw.startsWith(`${AGENT_ID}:`) ? raw : `${AGENT_ID}:${raw}`;
-}
-
-function eventSessionId(event) {
-  const props = event && event.properties && typeof event.properties === "object" ? event.properties : {};
-  return props.sessionID || event.sessionID || lastSessionId;
-}
 
 function mapEvent(event) {
   if (!event || typeof event.type !== "string") return null;
-  const status = event.properties && event.properties.status && event.properties.status.type;
+  const status = event.properties?.status?.type;
 
-  if (event.type === "session.created") return { state: "idle", name: "SessionStart" };
-  if (event.type === "session.deleted" || event.type === "server.instance.disposed") return { state: "sleeping", name: "SessionEnd" };
+  if (event.type === "session.created") return { state: "idle", event: "SessionStart" };
+  if (event.type === "session.deleted" || event.type === "server.instance.disposed") return { state: "sleeping", event: "SessionEnd" };
 
   if (event.type === "message.part.updated") {
-    if (status === "running") return { state: "thinking", name: "UserPromptSubmit" };
-    if (status === "tool") return { state: "working", name: "PreToolUse" };
-    if (status === "error") return { state: "error", name: "StopFailure" };
+    if (status === "running")  return { state: "thinking", event: "UserPromptSubmit" };
+    if (status === "tool")     return { state: "working",  event: "PreToolUse" };
+    if (status === "error")    return { state: "error",    event: "StopFailure" };
   }
 
-  if (event.type === "session.idle") return { state: "attention", name: "Stop" };
-  if (event.type === "permission.asked") return { state: "notification", name: "PermissionRequest" };
+  if (event.type === "session.idle")   return { state: "attention",    event: "Stop" };
+  if (event.type === "permission.asked") return { state: "notification", event: "PermissionRequest" };
 
   return null;
 }
 
+function extractOutput(event) {
+  const p = event.properties;
+  if (!p) return "";
+  return (p.text || p.output || p.message || "").substring(0, 120);
+}
+
 function postState(body) {
   const payload = JSON.stringify(body);
-  for (const port of ports()) {
-    fetch(`http://127.0.0.1:${port}/api/hook`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: payload,
-    }).then((res) => {
-      if (res.ok) cachedPort = port;
-    }).catch(() => {});
-  }
+  fetch(API_URL, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: payload,
+  }).then(r => {
+    if (r.ok) console.log(`[MiMoCode→ESP32] ${body.state} -> ${body.output?.substring(0, 40)}`);
+    else console.warn(`[MiMoCode→ESP32] HTTP ${r.status}`);
+  }).catch(e => console.warn(`[MiMoCode→ESP32] ${e.message}`));
 }
 
 export default async function codePetMimocodePlugin(ctx = {}) {
-  const cwd = typeof ctx.directory === "string" ? ctx.directory : "";
-
   return {
     event: async ({ event }) => {
       const mapped = mapEvent(event);
-      const rawSessionId = eventSessionId(event);
-      if (rawSessionId) lastSessionId = normalizeSessionId(rawSessionId);
-
-      let output = "";
-      if (event.properties) {
-        if (event.properties.text) output = event.properties.text;
-        else if (event.properties.output) output = event.properties.output;
-        else if (event.properties.message) output = event.properties.message;
-      }
-      if (output) lastOutput = output.substring(0, 120);
-
+      let output = extractOutput(event);
       if (!mapped) return;
+
       postState({
-        agentId: AGENT_ID,
-        agentName: AGENT_NAME,
-        sessionId: lastSessionId,
-        cwd,
+        agent: AGENT_NAME,
         state: mapped.state,
-        event: mapped.name,
-        output: lastOutput,
+        event: mapped.event,
+        output,
       });
     },
 
-    "tool.execute.before": async ({ tool, sessionID, callID }) => {
-      const sessionId = sessionID ? normalizeSessionId(sessionID) : lastSessionId;
-      lastOutput = `Running: ${tool}`;
+    "tool.execute.before": async ({ tool }) => {
       postState({
-        agentId: AGENT_ID,
-        agentName: AGENT_NAME,
-        sessionId,
-        cwd,
+        agent: AGENT_NAME,
         state: "working",
         event: `tool:${tool}`,
-        output: lastOutput,
+        output: `Running: ${tool}`,
       });
     },
 
-    "tool.execute.after": async ({ tool, sessionID, callID, args }) => {
-      const sessionId = sessionID ? normalizeSessionId(sessionID) : lastSessionId;
+    "tool.execute.after": async ({ tool, args }) => {
       let output = `Done: ${tool}`;
-      if (args && args.command) output = args.command.substring(0, 120);
-      else if (args && args.pattern) output = `Search: ${args.pattern}`.substring(0, 120);
-      else if (args && args.file_path) output = args.file_path.substring(0, 120);
-      lastOutput = output;
+      if (args?.command) output = args.command.substring(0, 120);
+      else if (args?.file_path) output = args.file_path.substring(0, 120);
       postState({
-        agentId: AGENT_ID,
-        agentName: AGENT_NAME,
-        sessionId,
-        cwd,
+        agent: AGENT_NAME,
         state: "thinking",
         event: `tool:${tool}:done`,
-        output: lastOutput,
+        output,
       });
     },
 
-    "chat.message": async ({ sessionID, agent, model }) => {
-      const sessionId = sessionID ? normalizeSessionId(sessionID) : lastSessionId;
+    "chat.message": async ({ model }) => {
       const modelName = model ? `${model.providerID}/${model.modelID}` : "";
-      lastOutput = modelName ? `Model: ${modelName}` : "New message";
       postState({
-        agentId: AGENT_ID,
-        agentName: AGENT_NAME,
-        sessionId,
-        cwd,
+        agent: AGENT_NAME,
         state: "thinking",
         event: "chat.message",
-        output: lastOutput,
+        output: modelName ? `Model: ${modelName}` : "New message",
       });
     },
   };
