@@ -255,3 +255,15 @@ void displayShowError(const char* msg) {
 }
 
 void displayFillScreen(uint16_t c) { tft.fillScreen(c); }
+
+void displayShowIP(const char* ip) {
+    tft.fillScreen(0x0000);
+    tft.setTextDatum(MC_DATUM);
+    tft.setTextColor(dim(0xFFFF, 60), 0x0000);
+    tft.drawString("VIBE PET", W / 2, 55, 2);
+    tft.setTextColor(rgb565(155, 200, 175), 0x0000);
+    tft.drawString(ip, W / 2, 100, 4);
+    tft.setTextColor(dim(0xFFFF, 30), 0x0000);
+    tft.drawString("POST /api/state", W / 2, 140, 2);
+    tft.setTextDatum(TL_DATUM);
+}

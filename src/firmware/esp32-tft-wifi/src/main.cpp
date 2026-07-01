@@ -73,16 +73,7 @@ void setup() {
         Serial.printf("Ready! POST to http://%s/api/state\n", ip.c_str());
 
         // 启动前显示 IP 5 秒
-        tft.fillScreen(0x0000);
-        tft.setTextDatum(MC_DATUM);
-        tft.setTextColor(0xFFFF, 0x0000);
-        tft.drawString("VIBE PET", 160, 60, 2);
-        tft.setTextColor(0x5BEC, 0x0000);  // 绿色
-        tft.drawString(ip.c_str(), 160, 100, 4);
-        tft.setTextColor(0x4208, 0x0000);
-        tft.drawString("POST /api/state", 160, 135, 2);
-        tft.setTextDatum(TL_DATUM);
-
+        displayShowIP(ip.c_str());
         delay(5000);
         xTaskCreatePinnedToCore(appTask, "AppTask", 4096, NULL, 1, NULL, 1);
     } else {
