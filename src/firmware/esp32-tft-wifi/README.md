@@ -2,6 +2,9 @@
 
 通过 WiFi 轮询 VibePet 桥接服务，在 ESP32 + ST7789 屏幕上实时显示 AI 编程助手的状态与动画。
 
+✨ **支持主机名解析** — 不再怕电脑 IP 变动！填写电脑名即可自动解析 IP。
+✨ **全新角色与全屏布局** — 可爱幽灵角色 × 三栏布局，充分利用屏幕空间。
+
 ## 硬件需求
 
 | 组件 | 型号 | 说明 |
@@ -61,9 +64,12 @@ ESP32 启动后会自动检测是否已保存 WiFi 配置：
 3. 浏览器访问 `192.168.4.1`
 4. 填写：
    - **WiFi SSID / 密码** — 你的 2.4G WiFi
-   - **Bridge Host** — VibePet 桌面端所在电脑的 IP（查看桌面端设置或 `~/.code-pet/runtime.json` 中的 `port`）
+   - **Bridge Host** — 推荐填写电脑的**主机名**（如 `DESKTOP-ABC`），而不是 IP！ESP32 会自动通过 mDNS/DNS 解析当前 IP
+     - 也可以填 IP 地址（如 `192.168.1.2`），但电脑重启 IP 变了就需要重新配置
    - **Bridge Port** — 默认 `17384`
 5. 保存后 ESP32 自动重启连接
+
+> 💡 **主机名解析原理**：ESP32 先用 mDNS 解析 `主机名.local`，失败后用 `WiFi.hostByName()` 通过路由器 DNS 解析，再失败则直接用原始值。每 10 次轮询自动重新解析一次，电脑 IP 变了也能自动跟上。
 
 **已有配置但需要修改**：同时长按左右键 2 秒进入配置模式。
 
@@ -72,7 +78,7 @@ ESP32 启动后会自动检测是否已保存 WiFi 配置：
 | 配置 | 默认值 | 位置 | 说明 |
 |------|--------|------|------|
 | `POLL_INTERVAL_MS` | 500 | `config.h` | 轮询间隔（毫秒） |
-| `DEFAULT_BRIDGE_HOST` | 192.168.1.2 | `config.h` | 默认桥接 IP |
+| `DEFAULT_BRIDGE_HOST` | 192.168.1.2 | `config.h` | 默认桥接地址（可用主机名） |
 | `DEFAULT_BRIDGE_PORT` | 17384 | `config.h` | 默认桥接端口 |
 | `WIFI_AP_SSID` | VibePet-Setup | `config.h` | 配置模式热点名 |
 | `WIFI_AP_PASS` | 12345678 | `config.h` | 配置模式密码 |
@@ -105,8 +111,8 @@ src/firmware/esp32-tft-wifi/
 ├── src/
 │   ├── main.cpp         # 主程序, FreeRTOS 任务
 │   ├── state.cpp        # JSON 解析, 状态管理
-│   ├── network.cpp      # WiFi, WebServer, DNS, HTTP 轮询
-│   └── display.cpp      # TFT 渲染 (猫角色动画)
+│   ├── network.cpp      # WiFi, mDNS, WebServer, DNS, HTTP 轮询
+│   └── display.cpp      # TFT 渲染 (幽灵角色 + 全屏三栏布局)
 ├── lib/
 │   └── README
 └── test/

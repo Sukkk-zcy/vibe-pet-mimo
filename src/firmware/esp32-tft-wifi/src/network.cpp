@@ -7,15 +7,18 @@
 #include <HTTPClient.h>
 #include <Preferences.h>
 #include <time.h>
+#include <ESPmDNS.h>
 
 static Preferences prefs;
 static String wifiSSID = "";
 static String wifiPass = "";
 static String bridgeHost = DEFAULT_BRIDGE_HOST;
+static String resolvedIP = "";     // 缓存解析后的 IP
 static uint16_t bridgePort = DEFAULT_BRIDGE_PORT;
 static bool wifiConnected = false;
 static unsigned long lastPollTime = 0;
 static int reconnectAttempts = 0;
+static int resolveCounter = 0;     // 每 10 轮重新解析主机名
 
 static WebServer server(80);
 static DNSServer dnsServer;
@@ -36,6 +39,7 @@ input[type=text],input[type=number]{width:100%;padding:10px;border:1px solid #33
 button{width:100%;padding:12px;margin-top:20px;background:#e94560;color:#fff;border:none;border-radius:5px;font-size:18px;cursor:pointer}
 button:hover{background:#c81d4e}
 .info{text-align:center;color:#888;margin-top:10px;font-size:14px}
+.hint{color:#666;font-size:13px;margin:2px 0 0 0}
 </style>
 </head>
 <body>
@@ -45,8 +49,9 @@ button:hover{background:#c81d4e}
 <input type="text" name="ssid" required>
 <label>WiFi Password</label>
 <input type="text" name="pass">
-<label>Bridge Host</label>
+<label>Bridge Host (IP 或主机名)</label>
 <input type="text" name="host" value="192.168.1.2">
+<p class="hint">💡 填电脑的主机名（如 DESKTOP-ABC），ESP 会自动解析 IP，电脑重启也不怕</p>
 <label>Bridge Port</label>
 <input type="number" name="port" value="17384" min="1" max="65535">
 <button type="submit">Save & Restart</button>
@@ -55,6 +60,55 @@ button:hover{background:#c81d4e}
 </body>
 </html>
 )rawliteral";
+
+// 判断字符串是否为 IP 地址格式
+static bool looksLikeIP(const String& s) {
+    int dots = 0;
+    for (size_t i = 0; i < s.length(); i++) {
+        char c = s[i];
+        if (c == '.') { dots++; continue; }
+        if (!isDigit(c)) return false;
+    }
+    return dots == 3;
+}
+
+static void resolveBridgeAddr() {
+    if (bridgeHost.length() == 0) {
+        resolvedIP = "";
+        return;
+    }
+
+    // 如果是 IP 地址，直接用
+    if (looksLikeIP(bridgeHost)) {
+        resolvedIP = bridgeHost;
+        Serial.printf("Bridge: using static IP %s\n", resolvedIP.c_str());
+        return;
+    }
+
+    // 先试 mDNS 解析（支持 vibepet.local 这类名字）
+    if (MDNS.begin("vibepet-esp")) {
+        IPAddress ip = MDNS.queryHost(bridgeHost);
+        if (ip != INADDR_NONE) {
+            resolvedIP = ip.toString();
+            MDNS.end();
+            Serial.printf("Bridge: mDNS resolved %s -> %s\n", bridgeHost.c_str(), resolvedIP.c_str());
+            return;
+        }
+        MDNS.end();
+    }
+
+    // 再试 DNS 解析（通过路由器 DNS 解析主机名）
+    IPAddress ip;
+    if (WiFi.hostByName(bridgeHost.c_str(), ip)) {
+        resolvedIP = ip.toString();
+        Serial.printf("Bridge: DNS resolved %s -> %s\n", bridgeHost.c_str(), resolvedIP.c_str());
+        return;
+    }
+
+    // 都失败，直接用原始值（让 HTTP 请求失败后重试）
+    resolvedIP = bridgeHost;
+    Serial.printf("Bridge: failed to resolve %s, using raw\n", bridgeHost.c_str());
+}
 
 void networkLoadConfig() {
     prefs.begin(PREF_NAMESPACE, true);
@@ -140,6 +194,7 @@ void networkInit() {
     WiFi.mode(WIFI_STA);
     WiFi.begin(wifiSSID.c_str(), wifiPass.c_str());
 
+    // 等待 WiFi 连接
     unsigned long startAttempt = millis();
     while (WiFi.status() != WL_CONNECTED && millis() - startAttempt < 10000) {
         delay(100);
@@ -150,6 +205,9 @@ void networkInit() {
         reconnectAttempts = 0;
         configTime(GMT_OFFSET_SEC, DAYLIGHT_OFFSET, NTP_SERVER);
         Serial.printf("Connected to %s, IP: %s\n", wifiSSID.c_str(), WiFi.localIP().toString().c_str());
+
+        // 解析桥接地址（IP 或主机名 -> IP）
+        resolveBridgeAddr();
     } else {
         wifiConnected = false;
         WiFi.disconnect();
@@ -167,12 +225,26 @@ void networkPoll() {
         return;
     }
 
+    // 每 10 轮重新解析主机名（应对电脑 IP 变化）
+    resolveCounter++;
+    if (resolveCounter >= 10) {
+        resolveCounter = 0;
+        if (!looksLikeIP(bridgeHost)) {
+            resolveBridgeAddr();
+        }
+    }
+
     unsigned long now = millis();
     if (now - lastPollTime < POLL_INTERVAL_MS) return;
     lastPollTime = now;
 
+    // 如果 resolvedIP 为空先解析
+    if (resolvedIP.length() == 0) {
+        resolveBridgeAddr();
+    }
+
     HTTPClient http;
-    String url = "http://" + bridgeHost + ":" + String(bridgePort) + "/api/device-snapshot";
+    String url = "http://" + resolvedIP + ":" + String(bridgePort) + "/api/device-snapshot";
 
     http.begin(url);
     http.setTimeout(3000);
@@ -189,6 +261,10 @@ void networkPoll() {
         reconnectAttempts++;
         if (reconnectAttempts > 10) {
             isConnected = false;
+            // 尝试重新解析主机名（可能 IP 变了）
+            if (!looksLikeIP(bridgeHost)) {
+                resolveBridgeAddr();
+            }
         }
     }
 
