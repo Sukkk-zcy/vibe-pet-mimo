@@ -4,26 +4,13 @@
 #include <WiFi.h>
 #include <WebServer.h>
 #include <DNSServer.h>
-#include <HTTPClient.h>
 #include <Preferences.h>
 #include <time.h>
 
 static Preferences prefs;
 static String wifiSSID = "";
 static String wifiPass = "";
-static String bridgeHost = "";
-static uint16_t bridgePort = 17384;
-static bool wifiConnected = false;
-static unsigned long lastPollTime = 0;
-static int failCount = 0;
 
-// 自动扫描
-static bool scanning = false;
-static uint32_t scanIP = 0;
-static uint32_t scanEnd = 0;
-static uint32_t scanStartTime = 0;
-
-// HTTP 服务 + 配置门户
 static WebServer server(80);
 static DNSServer dnsServer;
 static bool configMode = false;
@@ -55,18 +42,15 @@ button:hover{background:#c81d4e}
 <input type="password" name="pass">
 <button type="submit">Save & Restart</button>
 </form>
-<p class="info">保存后 ESP32 会自动扫描局域网找到你的电脑</p>
+<p class="info">电脑端请运行 VibePetBridge.exe 推送到本设备</p>
 </body>
 </html>
 )rawliteral";
 
-// ─── 存储 ────────────────────────────────────────────────
 void networkLoadConfig() {
     prefs.begin("vibepet", true);
     wifiSSID = prefs.getString("ssid", "");
     wifiPass = prefs.getString("pass", "");
-    bridgeHost = prefs.getString("host", "");
-    bridgePort = prefs.getUShort("port", 17384);
     currentBrightness = prefs.getInt("bright", 128);
     prefs.end();
 }
@@ -80,7 +64,6 @@ void networkSaveConfig(const char* ssid, const char* pass) {
     wifiSSID = ssid; wifiPass = pass;
 }
 
-// ─── 配置门户 ────────────────────────────────────────────
 static void handleRoot() { server.send(200, "text/html", CONFIG_PAGE); }
 
 static void handleSave() {
@@ -90,7 +73,7 @@ static void handleSave() {
     networkSaveConfig(ssid.c_str(), pass.c_str());
     server.send(200, "text/html",
         "<html><body style='background:#1a1a2e;color:#eee;text-align:center;padding:40px;font-family:Arial'>"
-        "<h1 style='color:#e94560'>Saved!</h1><p>ESP will scan LAN for your PC...</p></body></html>");
+        "<h1 style='color:#e94560'>Saved!</h1><p>Restarting...</p></body></html>");
     delay(2000);
     ESP.restart();
 }
@@ -107,107 +90,23 @@ void networkStartConfigPortal() {
     server.begin();
 }
 
-// ─── POST /api/state（直推接口）─────────────────────────
+// ─── POST /api/state ─────────────────────────────────────
 static void handleStatePost() {
     if (!server.hasArg("plain")) { server.send(400); return; }
     if (stateParse(server.arg("plain").c_str())) {
-        isConnected = true; failCount = 0;
-        server.send(200, "text/plain", "OK");
-    } else { server.send(400); }
-}
-
-// ─── 自动扫描局域网 ─────────────────────────────────────
-static bool tryBridge(IPAddress ip) {
-    HTTPClient http;
-    String url = "http://" + ip.toString() + ":" + String(bridgePort) + "/api/device-snapshot";
-    http.begin(url);
-    http.setTimeout(300);
-    int code = http.GET();
-    http.end();
-    if (code == 200) {
-        bridgeHost = ip.toString();
-        // 存到 Preferences 以便下次启动快速连接
-        prefs.begin("vibepet", false);
-        prefs.putString("host", bridgeHost);
-        prefs.end();
-        return true;
-    }
-    return false;
-}
-
-static void startScan() {
-    IPAddress lip = WiFi.localIP();
-    IPAddress mask = WiFi.subnetMask();
-    uint32_t ip = (uint32_t)lip;
-    uint32_t m = (uint32_t)mask;
-    scanIP = (ip & m) + 1;
-    scanEnd = (ip | ~m) - 1;
-    scanStartTime = millis();
-    scanning = true;
-    Serial.printf("Scan: %s ~ %s\n",
-        IPAddress(scanIP).toString().c_str(),
-        IPAddress(scanEnd).toString().c_str());
-}
-
-static void continueScan() {
-    if (!scanning) return;
-    for (int i = 0; i < 10 && scanIP <= scanEnd; i++, scanIP++) {
-        if (tryBridge(IPAddress(scanIP))) {
-            scanning = false;
-            failCount = 0;
-            isConnected = true;
-            Serial.printf("Found bridge at %s\n", bridgeHost.c_str());
-            return;
-        }
-    }
-    if (scanIP > scanEnd) {
-        scanning = false;
-        if (bridgeHost.length() == 0) {
-            Serial.println("Scan: no bridge found on this network");
-        }
-    }
-}
-
-// ─── 轮询桥接 ────────────────────────────────────────────
-static void pollBridge() {
-    if (bridgeHost.length() == 0) {
-        if (!scanning) startScan();
-        return;
-    }
-
-    HTTPClient http;
-    String url = "http://" + bridgeHost + ":" + String(bridgePort) + "/api/device-snapshot";
-    http.begin(url);
-    http.setTimeout(1500);
-
-    int code = http.GET();
-    if (code == 200) {
-        stateParse(http.getString().c_str());
         isConnected = true;
-        failCount = 0;
+        server.send(200, "text/plain", "OK");
     } else {
-        failCount++;
-        if (failCount > 5) {
-            isConnected = false;
-            // 超过 5 次失败，重新扫描
-            if (!scanning) {
-                Serial.println("Bridge lost, rescanning...");
-                startScan();
-            }
-        }
+        server.send(400, "text/plain", "bad json");
     }
-    http.end();
 }
 
-// ─── 初始化 ──────────────────────────────────────────────
 void networkInit() {
     networkLoadConfig();
-
     if (wifiSSID.length() == 0) { networkStartConfigPortal(); return; }
 
     WiFi.mode(WIFI_STA);
     WiFi.begin(wifiSSID.c_str(), wifiPass.c_str());
-
     unsigned long start = millis();
     while (WiFi.status() != WL_CONNECTED && millis() - start < 10000) delay(100);
 
@@ -222,30 +121,12 @@ void networkInit() {
 
     server.on("/api/state", HTTP_POST, handleStatePost);
     server.begin();
-
-    // 如果有保存的 IP 先试试，没有就自动扫描
-    if (bridgeHost.length() > 0) {
-        pollBridge();
-        Serial.printf("Bridge cached: %s %s\n", bridgeHost.c_str(), isConnected ? "OK" : "unreachable");
-    }
-    if (!isConnected && !scanning) startScan();
+    Serial.printf("Ready at http://%s/api/state\n", WiFi.localIP().toString().c_str());
 }
 
 void networkHandle() {
     if (configMode) dnsServer.processNextRequest();
     server.handleClient();
-
-    if (configMode) return;
-
-    if (scanning) { continueScan(); return; }
-
-    unsigned long now = millis();
-    if (now - lastPollTime < 500) return;
-    lastPollTime = now;
-
-    pollBridge();
 }
 
 String networkGetSSID() { return wifiSSID; }
-String networkGetHost() { return bridgeHost; }
-uint16_t networkGetPort() { return bridgePort; }
