@@ -110,7 +110,7 @@ static void drawMain() {
         debounceTime = millis();
     }
     bool stable = (millis() - debounceTime > DB_MS);
-    bool stateChanged = ((stable && pet.state != sState) || pet.agent != sAgent || isConnected != sConnected);
+    bool stateChanged = (stable && (pet.state != sState || pet.agent != sAgent)) || isConnected != sConnected;
     bool outputChanged = (pet.output != sOutput);
 
     // 页面切换或状态变化 → 全部重绘
