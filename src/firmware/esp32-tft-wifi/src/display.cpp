@@ -97,9 +97,20 @@ static void drawTop() {
     }
 }
 
+static String debounceState = "";
+static unsigned long debounceTime = 0;
+#define DB_MS 600
+
 static void drawMain() {
     uint16_t gc = sc();
-    bool stateChanged = (pet.state != sState || pet.agent != sAgent || isConnected != sConnected);
+
+    // 消抖：状态快速变化时不刷新
+    if (pet.state != debounceState) {
+        debounceState = pet.state;
+        debounceTime = millis();
+    }
+    bool stable = (millis() - debounceTime > DB_MS);
+    bool stateChanged = ((stable && pet.state != sState) || pet.agent != sAgent || isConnected != sConnected);
     bool outputChanged = (pet.output != sOutput);
 
     // 页面切换或状态变化 → 全部重绘
