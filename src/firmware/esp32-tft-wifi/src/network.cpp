@@ -119,6 +119,9 @@ void networkInit() {
     configTime(8 * 3600, 0, "ntp1.aliyun.com");
     Serial.printf("WiFi OK, IP: %s\n", WiFi.localIP().toString().c_str());
 
+    // WiFi已连接，等待桥接推送
+    isConnected = true;
+
     server.on("/api/state", HTTP_POST, handleStatePost);
     server.begin();
     Serial.printf("Ready at http://%s/api/state\n", WiFi.localIP().toString().c_str());
