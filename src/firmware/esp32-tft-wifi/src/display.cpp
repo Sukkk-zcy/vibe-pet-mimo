@@ -236,10 +236,10 @@ void displayShowPage(int p) { page = p; }
 void displayShowConnecting() {
     tft.fillScreen(0x0000);
     tft.setTextDatum(MC_DATUM);
-    tft.setTextColor(dim(0xFFFF, 35), 0x0000);
-    tft.drawString("VIBE PET", W / 2, H / 2 - 12, 2);
-    tft.setTextColor(dim(0xFFFF, 22), 0x0000);
-    tft.drawString("Connecting", W / 2, H / 2 + 14, 1);
+    tft.setTextColor(dim(0xFFFF, 50), 0x0000);
+    tft.drawString("VIBE PET", W / 2, H / 2 - 25, 4);
+    tft.setTextColor(dim(0xFFFF, 25), 0x0000);
+    tft.drawString("Connecting", W / 2, H / 2 + 15, 2);
     tft.setTextDatum(TL_DATUM);
 }
 
