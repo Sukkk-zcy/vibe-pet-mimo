@@ -98,7 +98,7 @@ void displayTask(void* parameter) {
 
 void setup() {
     Serial.begin(SERIAL_BAUD);
-    Serial.println("VibePet BLE starting...");
+    Serial.println("VibePet-BLE starting...");
     Serial.println("Type 'test working' or 'help' for commands");
 
     stateInit();

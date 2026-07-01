@@ -3,7 +3,7 @@
 
 #include <Arduino.h>
 
-#define DEVICE_NAME "VibePet-ESP32"
+#define DEVICE_NAME "VibePet-WiFi"
 
 #define BUTTON_LEFT_PIN  25
 #define BUTTON_RIGHT_PIN 27

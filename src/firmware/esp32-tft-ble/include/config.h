@@ -3,7 +3,7 @@
 
 #include <Arduino.h>
 
-#define DEVICE_NAME "VibePet-ESP32"
+#define DEVICE_NAME "VibePet-BLE"
 
 #define BUTTON_LEFT_PIN  25
 #define BUTTON_RIGHT_PIN 27
@@ -61,7 +61,7 @@
 #define STATE_SWEEPING     "sweeping"
 #define STATE_SLEEPING     "sleeping"
 
-#define BLE_DEVICE_NAME    "VibePet-ESP-Display"
+#define BLE_DEVICE_NAME    "VibePet-BLE-Display"
 #define BLE_SERVICE_UUID   "7b71f91a-3c7b-4c3b-9f2d-2dbdccd5c001"
 #define BLE_STATE_CHAR_UUID "7b71f91a-3c7b-4c3b-9f2d-2dbdccd5c002"
 

@@ -64,7 +64,7 @@ void displayInit() {
     robotBuf.createSprite(SPRITE_W, SPRITE_H);
     tft.setTextDatum(MC_DATUM);
     tft.setTextColor(DIM, BG);
-    tft.drawString("VIBE PET", tft.width() / 2, tft.height() / 2, 4);
+    tft.drawString("VIBE PET [BLE]", tft.width() / 2, tft.height() / 2, 4);
     tft.setTextDatum(TL_DATUM);
 }
 
@@ -269,7 +269,7 @@ static void drawStaticUI() {
     tft.fillScreen(BG);
     tft.setTextDatum(TL_DATUM);
     tft.setTextColor(DIM, BG);
-    tft.drawString("VIBE PET", 10, 6, 2);
+    tft.drawString("VIBE PET [BLE]", 10, 6, 2);
     tft.setTextDatum(TR_DATUM);
     tft.setTextColor(isConnected ? 0x0726 : DIM, BG);
     tft.drawString(isConnected ? "BLE" : "OFF", w - 10, 6, 2);
@@ -297,7 +297,7 @@ static void drawTopBar() {
     int16_t w = tft.width();
     tft.setTextDatum(TL_DATUM);
     tft.setTextColor(DIM, BG);
-    tft.drawString("VIBE PET", 10, 6, 2);
+    tft.drawString("VIBE PET [BLE]", 10, 6, 2);
     tft.setTextDatum(TR_DATUM);
     tft.setTextColor(isConnected ? 0x0726 : DIM, BG);
     tft.drawString(isConnected ? "BLE" : "OFF", w - 10, 6, 2);

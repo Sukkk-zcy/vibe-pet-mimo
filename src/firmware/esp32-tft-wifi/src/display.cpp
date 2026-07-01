@@ -428,7 +428,7 @@ static void drawTopBar(uint16_t ac) {
     tft.fillRect(0, 0, W, TOP_H, BG);
     tft.setTextDatum(TL_DATUM);
     tft.setTextColor(dim(WHITE, 70), BG);
-    tft.drawString("VIBE PET", 10, 5, 2);
+    tft.drawString("VIBE PET [WiFi]", 10, 5, 2);
 
     // 时间（中）
     tft.setTextDatum(MC_DATUM);

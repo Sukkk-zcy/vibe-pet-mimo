@@ -125,7 +125,7 @@ void displayTask(void* parameter) {
 
 void setup() {
     Serial.begin(SERIAL_BAUD);
-    Serial.println("VibePet starting...");
+    Serial.println("VibePet-WiFi starting...");
 
     stateInit();
     initButtons();
