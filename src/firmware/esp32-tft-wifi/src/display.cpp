@@ -99,7 +99,7 @@ static void drawTop() {
 
 static String debounceState = "";
 static unsigned long debounceTime = 0;
-#define DB_MS 600
+#define DB_MS 300
 
 static void drawMain() {
     uint16_t gc = sc();
@@ -141,13 +141,17 @@ static void drawMain() {
     if (outputChanged) {
         tft.fillRect(0, 155, W, 85, 0x0000);
         if (isConnected) {
-            tft.setTextDatum(MC_DATUM);
+            tft.setTextDatum(TL_DATUM);
             tft.setTextSize(2);
             tft.setTextColor(dim(0xFFFF, 16), 0x0000);
             String out = pet.output;
-            if (out.length() > 28) out = out.substring(0, 25) + "...";
-            tft.drawString(out.c_str(), W / 2, 175, 1);
+            // 按像素宽度截断，确保不超出屏幕
+            while (out.length() > 0 && tft.textWidth(out.c_str(), 1) > (W - 20)) {
+                out = out.substring(0, out.length() - 4) + "...";
+            }
+            tft.drawString(out.c_str(), 10, 175, 1);
             tft.setTextSize(1);
+            tft.setTextDatum(MC_DATUM);
         }
         sOutput = pet.output;
     }
